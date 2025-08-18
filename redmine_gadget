@@ -3,7 +3,7 @@
 // @downloadURL https://github.com/ert135798/joy/blob/2227f2290ef389e22c834e5b9d7198c7a40f259e/redmine_gadget.js
 // @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
 // @namespace    http://tampermonkey.net/
-// @version      2.4.3
+// @version      2.4.4
 // @description  Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://172.17.16.15:8080/redmine/*
 // @grant        none
