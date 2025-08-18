@@ -5,6 +5,8 @@
 // @description  GITHUB版本 Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://172.17.16.15:8080/redmine/*
 // @grant        none
+// @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
+// @downloadURL  https://ert135798.github.io/joy/redmine_gadget.js
 // ==/UserScript==
 
 (function() {
