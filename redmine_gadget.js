@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
 // @namespace    http://tampermonkey.net/
-// @version      2.6.4
-// @description  GITHUB版本 2.6.3 改背景設碼#CCEEFF
-// @description  (過去)Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
+// @version      2.7
+// @description  GITHUB版本 2.7 增加共用角色和預計(追蹤用)欄位
+// @description  (過去) 2.6.3 改背景設碼#CCEEFF Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -56,7 +56,7 @@
         // 角色勾選框
         const roleWrapper = document.createElement("span");
         roleWrapper.style.marginRight = "5px";
-        const roles = ["SA","PG","SD","TESTER","ALL"];
+        const roles = ["SA","PG","SD","TESTER","共用","ALL"];
         const roleCheckboxes = {};
         roles.forEach(r => {
             const label = document.createElement("label");
@@ -76,6 +76,7 @@
             {text: "全部", value: "all"},
             {text: "開始日", value: "startDate"},
             {text: "結束日", value: "endDate"},
+            {text: "預計(追蹤用)", value: "forUserDate"},
             {text: "預計開始日", value: "plannedStartDate"},
             {text: "預計結束日", value: "plannedEndDate"},
             {text: "實際開始日", value: "actualStartDate"},
@@ -112,16 +113,18 @@
             "PG": [19,20,21,26],
             "SD": [39,40,41,42],
             "TESTER": [45,46,47,48],
+            "共用": [33,34,"issue_start_date","issue_due_date"],
             "ALL": []
         };
 
         // 欄位分類
-        const startDateFields = [10,18,19,21,45,47,39,41];
-        const endDateFields = [17,25,20,26,46,48,40,42];
-        const plannedStartFields = [10,19,45,39];
-        const plannedEndFields = [17,20,46,41];
+        const startDateFields = [10,18,19,21,45,47,39,41,33];
+        const endDateFields = [17,25,20,26,46,48,40,42,34];
+        const plannedStartFields = [10,19,45,39,33];
+        const plannedEndFields = [17,20,46,41,34];
         const actualStartFields = [17,20,46,40];
         const actualEndFields = [25,26,48,42];
+        const forUserDate = [33,34,"issue_due_date"];
 
         // 計算日期
         function getDateFromBase(base, offsetDays = 0) {
@@ -135,7 +138,7 @@
 
         // 填入日期
         function fillDate(offsetDays, fieldType, baseDate) {
-            const 日期 = getDateFromBase(baseDate, offsetDays);
+            const ddd = getDateFromBase(baseDate, offsetDays);
             const selectedRoles = roles.filter(r => roleCheckboxes[r].checked);
             if(selectedRoles.length === 0) { alert("⚠️ 請勾選至少一個角色"); return; }
 
@@ -148,7 +151,7 @@
                     else if(fieldType === "plannedEndDate") ids = plannedEndFields;
                     else if(fieldType === "actualStartDate") ids = actualStartFields;
                     else if(fieldType === "actualEndDate") ids = actualEndFields;
-                    else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields];
+                    else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields,...forUserDate];
                 } else {
                     const roleIds = roleFields[role] || [];
                     if(fieldType === "all") ids = roleIds;
@@ -158,8 +161,17 @@
                     else if(fieldType === "plannedEndDate") ids = roleIds.filter(id => plannedEndFields.includes(id));
                     else if(fieldType === "actualStartDate") ids = roleIds.filter(id => actualStartFields.includes(id));
                     else if(fieldType === "actualEndDate") ids = roleIds.filter(id => actualEndFields.includes(id));
+                    else if(fieldType === "forUserDate") ids = roleIds.filter(id => forUserDate.includes(id));
                 }
-                ids.forEach(id => { const el = document.getElementById(`issue_custom_field_values_${id}`); if(el) el.value = 日期; });
+                ids.forEach(id => {
+                    let el;
+                    if (typeof id === "number") {
+                        el = document.getElementById(`issue_custom_field_values_${id}`);
+                    } else if (typeof id === "string") {
+                       el = document.getElementById(id);// 直接用字串當 DOM id
+                    }
+                    if (el) el.value = ddd;// 或清空時 el.value = ""
+                });
             });
             alert(`✅ 已填入 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位`);
         }
@@ -189,10 +201,28 @@
                     else if(fieldType === "plannedEndDate") ids = roleIds.filter(id => plannedEndFields.includes(id));
                     else if(fieldType === "actualStartDate") ids = roleIds.filter(id => actualStartFields.includes(id));
                     else if(fieldType === "actualEndDate") ids = roleIds.filter(id => actualEndFields.includes(id));
+                    else if(fieldType === "forUserDate") ids = roleIds.filter(id => forUserDate.includes(id));
                 }
-                ids.forEach(id => { const el = document.getElementById(`issue_custom_field_values_${id}`); if(el) el.value = ""; });
+
+
+                ids.forEach(id => {
+                    let el;
+                    if (typeof id === "number") {
+                        el = document.getElementById(`issue_custom_field_values_${id}`);
+                    } else if (typeof id === "string") {
+                        el = document.getElementById(id);// 直接用字串當 DOM id
+                    }
+                    if(el) el.value = "";
+                });
             });
-            alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位`);
+
+            // 🔹 同時處理 link_copy
+            const linkCopy = document.getElementById("link_copy");
+            if (linkCopy && linkCopy.type === "checkbox") {
+                linkCopy.checked = false;// 清除時取消勾選
+            }
+
+            alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位，並取消 link_copy 勾選`);
         }
 
         // 按鈕事件
