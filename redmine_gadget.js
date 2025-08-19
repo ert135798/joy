@@ -56,7 +56,7 @@
         // 角色勾選框
         const roleWrapper = document.createElement("span");
         roleWrapper.style.marginRight = "5px";
-        const roles = ["SA","PG","SD","TESTER","共用","ALL"];
+        const roles = ["SA","PG","SD","TESTER","ALL"];
         const roleCheckboxes = {};
         roles.forEach(r => {
             const label = document.createElement("label");
@@ -113,7 +113,6 @@
             "PG": [19,20,21,26],
             "SD": [39,40,41,42],
             "TESTER": [45,46,47,48],
-            "共用": [33,34,"issue_start_date","issue_due_date"],
             "ALL": []
         };
 
