@@ -150,6 +150,7 @@
                     else if(fieldType === "plannedEndDate") ids = plannedEndFields;
                     else if(fieldType === "actualStartDate") ids = actualStartFields;
                     else if(fieldType === "actualEndDate") ids = actualEndFields;
+                    else if(fieldType === "forUserDate") ids = forUserDate;
                     else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields,...forUserDate];
                 } else {
                     const roleIds = roleFields[role] || [];
@@ -190,6 +191,7 @@
                     else if(fieldType === "plannedEndDate") ids = plannedEndFields;
                     else if(fieldType === "actualStartDate") ids = actualStartFields;
                     else if(fieldType === "actualEndDate") ids = actualEndFields;
+                    else if(fieldType === "forUserDate") ids = forUserDate;
                     else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields,...forUserDate];
                 } else {
                     const roleIds = roleFields[role] || [];
