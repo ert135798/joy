@@ -1,8 +1,9 @@
 // ==UserScript==
 // @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
 // @namespace    http://tampermonkey.net/
-// @version      2.6.1
-// @description  GITHUB版本 Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
+// @version      2.6.2
+// @description  GITHUB版本 2.6.2 改背景設碼#AAFFEE
+// @description  (過去)Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -218,7 +219,7 @@
             isCollapsed = !isCollapsed;
             container.style.display = isCollapsed ? "none" : "block";
             //wrapper.style.background = isCollapsed ? "transparent" : "#CCEEFF";
-            wrapper.style.background = isCollapsed ? "transparent" : "white";
+            wrapper.style.background = isCollapsed ? "transparent" : "#AAFFEE";
             wrapper.style.border = isCollapsed ? "none" : "1px solid #ccc";
             toggleBtn.innerText = isCollapsed ? "▼" : "▲";
         });
