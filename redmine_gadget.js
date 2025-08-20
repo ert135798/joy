@@ -5,6 +5,8 @@
 // @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉
 // @match        http://*/redmine/*
 // @grant        none
+// @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
+// @downloadURL  https://ert135798.github.io/joy/redmine_gadget.js
 // ==/UserScript==
 
 (function() {
