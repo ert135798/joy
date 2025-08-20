@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
 // @namespace    http://tampermonkey.net/
-// @version      2.7
+// @version      2.7.1 調整欄位
 // @description  GITHUB版本  2.7 增加共用角色和預計(追蹤用)欄位
 // @description  (過去) 2.6.3 改背景設碼#CCEEFF Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://*/redmine/*
@@ -110,8 +110,8 @@
         // 角色欄位定義
         const roleFields = {
             "SA": [10,17,18,25],
-            "PG": [19,20,21,26],
             "SD": [39,40,41,42],
+            "PG": [19,20,21,26],
             "TESTER": [45,46,47,48],
             "ALL": []
         };
@@ -119,11 +119,11 @@
         // 欄位分類
         const startDateFields = [10,18,19,21,45,47,39,41,33];
         const endDateFields = [17,25,20,26,46,48,40,42,34];
-        const plannedStartFields = [10,19,45,39,33];
-        const plannedEndFields = [17,20,46,41,34];
-        const actualStartFields = [17,20,46,40];
-        const actualEndFields = [25,26,48,42];
-        const forUserDate = [33,34,"issue_due_date"];
+        const plannedStartFields = [10,39,19,45];//預計開始
+        const plannedEndFields = [17,40,20,41];//預計結束
+        const actualStartFields = [18,41,21,47];
+        const actualEndFields = [25,42,26,48];
+        const forUserDate = [33,34,"issue_due_date"];//預計(追蹤)用欄位
 
         // 計算日期
         function getDateFromBase(base, offsetDays = 0) {
