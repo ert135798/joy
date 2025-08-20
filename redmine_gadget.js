@@ -16,16 +16,16 @@
     function addInput() {
         if (document.getElementById("redmineCustomDateWrapper")) return;
 
+
+
+
         const wrapper = document.createElement("div");
         wrapper.id = "redmineCustomDateWrapper";
         wrapper.style.position = "fixed";
         wrapper.style.bottom = "20px";
         wrapper.style.right = "20px";
-        wrapper.style.padding = "10px";
-        wrapper.style.borderRadius = "8px";
-        wrapper.style.zIndex = "999999";
 
-        // 收合按鈕
+       // 收合按鈕
         const toggleBtn = document.createElement("button");
         toggleBtn.style.position = "absolute";
         toggleBtn.style.top = "-20px";
@@ -36,6 +36,23 @@
         // 內容區塊
         const container = document.createElement("div");
         wrapper.appendChild(container);
+
+        // 預設收合(開著的話=true，關著的話=false)
+        let isOpen = false;
+        // 起始狀態設定
+        if(isOpen) {
+            wrapper.style.background = "#CCEEFF";
+            wrapper.style.border = "1px solid #ccc";
+            toggleBtn.innerText = "▲";
+        } else {
+            container.style.display = "none";
+            wrapper.style.background = "transparent";
+            wrapper.style.border = "none";
+            toggleBtn.innerText = "▼";
+        }
+        wrapper.style.padding = "10px";
+        wrapper.style.borderRadius = "8px";
+        wrapper.style.zIndex = "999999";
 
         // 基準日期
         const baseDateInput = document.createElement("input");
@@ -96,6 +113,10 @@
         btnFill.style.marginRight = "5px";
         const btnClear = document.createElement("button");
         btnClear.innerText = "清空欄位";
+        // 新增「填人員」按鈕
+        const btnFillName = document.createElement("button");
+        btnFillName.innerText = "填人員";
+        btnFillName.style.marginLeft = "-5px";
 
         // 將控件加入 container
         container.appendChild(baseDateInput);
@@ -103,6 +124,7 @@
         container.appendChild(roleWrapper);
         container.appendChild(fieldSelect);
         container.appendChild(btnFill);
+        container.appendChild(btnFillName);
         container.appendChild(btnClear);
 
         document.body.appendChild(wrapper);
@@ -238,21 +260,27 @@
 
         btnClear.addEventListener("click", () => { clearFields(); });
 
-        // 預設收合
-        let isCollapsed = true;
-        container.style.display = "none";
-        wrapper.style.background = "transparent";
-        wrapper.style.border = "none";
-        toggleBtn.innerText = "▼";
-
-        // 收合/展開
+         // 收合/展開
         toggleBtn.addEventListener("click", () => {
-            isCollapsed = !isCollapsed;
-            container.style.display = isCollapsed ? "none" : "block";
-            //wrapper.style.background = isCollapsed ? "transparent" : "#CCEEFF";
-            wrapper.style.background = isCollapsed ? "transparent" : "#CCEEFF";
-            wrapper.style.border = isCollapsed ? "none" : "1px solid #ccc";
-            toggleBtn.innerText = isCollapsed ? "▼" : "▲";
+            isOpen = !isOpen;
+            container.style.display = isOpen ? "block" : "none";
+            wrapper.style.background = isOpen ? "#CCEEFF" : "transparent";
+            wrapper.style.border = isOpen ? "1px solid #ccc" : "none";
+            toggleBtn.innerText = isOpen ? "▲" : "▼";
+        });
+
+        // 填名稱事件
+        btnFillName.addEventListener("click", () => {
+            const nameInput = document.getElementById("issue_subject"); // 標題欄位ID
+            if (!nameInput) {
+                alert("⚠️ 找不到名稱欄位");
+                return;
+            }
+            const nameValue = prompt("請輸入名稱：", "");
+            if (nameValue !== null) {
+                nameInput.value = nameValue;
+                alert(`✅ 名稱已設定為：${nameValue}`);
+            }
         });
     }
     window.addEventListener('load', addInput);
