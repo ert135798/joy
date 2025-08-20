@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
 // @namespace    http://tampermonkey.net/
-// @version      2.7.2 調整欄位
+// @version      2.8 調整畫面
 // @description  GITHUB版本  2.7 增加共用角色和預計(追蹤用)欄位
 // @description  (過去) 2.6.3 改背景設碼#CCEEFF Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
 // @match        http://*/redmine/*
@@ -38,7 +38,7 @@
         wrapper.appendChild(container);
 
         // 預設收合(開著的話=true，關著的話=false)
-        let isOpen = false;
+        let isOpen = true;
         // 起始狀態設定
         if(isOpen) {
             wrapper.style.background = "#CCEEFF";
@@ -65,8 +65,8 @@
         const offsetInput = document.createElement("input");
         offsetInput.type = "number";
         offsetInput.id = "dayOffset";
-        offsetInput.placeholder = "偏移天數 0=基準日";
-        offsetInput.style.width = "120px";
+        offsetInput.placeholder = "執行天數 0=基準日";
+        offsetInput.style.width = "70px";
         offsetInput.style.marginRight = "5px";
         offsetInput.value = "0";
 
@@ -107,24 +107,54 @@
         });
         fieldSelect.style.marginRight = "5px";
 
+        // 指派人下拉
+//         const assigneeSelect = document.createElement("select");
+//         assigneeSelect.id = "customAssigneeSelect";
+//         assigneeSelect.style.marginRight = "5px";
+//         assigneeSelect.style.minWidth = "120px";
+
+//         const issueAssignee = document.getElementById("issue_assigned_to_id");
+//         if(issueAssignee){
+//             Array.from(issueAssignee.options).forEach(opt => {
+//                 const newOpt = document.createElement("option");
+//                 newOpt.value = opt.value;
+//                 newOpt.text = opt.text;
+//                 assigneeSelect.add(newOpt);
+//             });
+//         }
+
+//         // 抓當前登入使用者
+//         const currentUser = document.querySelector("a.user.active");
+//         if(currentUser){
+//             const match = currentUser.href.match(/\/users\/(\d+)/);
+//             if(match){
+//                 const userId = match[1]; // 使用者ID
+//                 // 設定下拉預設值（如果選單裡有這個值才會選中）
+//                 assigneeSelect.value = userId;
+//             }
+//         }
+
         // 按鈕
         const btnFill = document.createElement("button");
         btnFill.innerText = "填日期";
         btnFill.style.marginRight = "5px";
         const btnClear = document.createElement("button");
         btnClear.innerText = "清空欄位";
-        // 新增「填人員」按鈕
-        const btnFillName = document.createElement("button");
-        btnFillName.innerText = "填人員";
-        btnFillName.style.marginLeft = "-5px";
+        btnFill.style.marginRight = "5px";
+        // // 新增「填人員」按鈕
+        // const btnFillName = document.createElement("button");
+        // btnFillName.innerText = "填人員";
+        // btnFillName.style.marginRight = "5px";
 
         // 將控件加入 container
-        container.appendChild(baseDateInput);
-        container.appendChild(offsetInput);
+
         container.appendChild(roleWrapper);
         container.appendChild(fieldSelect);
+        container.appendChild(baseDateInput);
+        container.appendChild(offsetInput);
         container.appendChild(btnFill);
-        container.appendChild(btnFillName);
+        //container.appendChild(assigneeSelect); // 放到填名稱前
+        //container.appendChild(btnFillName);
         container.appendChild(btnClear);
 
         document.body.appendChild(wrapper);
