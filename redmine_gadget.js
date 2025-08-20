@@ -254,6 +254,6 @@
             wrapper.style.border = isCollapsed ? "none" : "1px solid #ccc";
             toggleBtn.innerText = isCollapsed ? "▼" : "▲";
         });
-
+    }
     window.addEventListener('load', addInput);
 })();
