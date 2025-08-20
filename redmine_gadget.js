@@ -102,6 +102,7 @@
             {text:"6", value:"actualStartDate"},
             {text:"7", value:"actualEndDate"}
         ];
+        fieldOptions_date.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
         fieldSelect.style.marginRight="5px";
 
 
