@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2
 // @namespace    http://tampermonkey.net/
-// @version      2.11
+// @version      2.12
 // @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉
 // @match        http://*/redmine/*
 // @grant        none
@@ -35,7 +35,7 @@
         wrapper.appendChild(container);
 
         //預設常駐打開=true,反之false
-        let isOpen = true;
+        let isOpen = false;
         if(isOpen) {
             wrapper.style.background = "#CCEEFF";
             wrapper.style.border = "1px solid #ccc";
@@ -80,7 +80,7 @@
 
         // 欄位類型下拉
         const fieldSelect = document.createElement("select");
-        const fieldOptions = [
+        const fieldOptions_date = [
             {text:"全部", value:"all"},
             {text:"開始日", value:"startDate"},
             {text:"結束日", value:"endDate"},
@@ -90,8 +90,18 @@
             {text:"實際開始日", value:"actualStartDate"},
             {text:"實際結束日", value:"actualEndDate"}
         ];
-        fieldOptions.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
+         const fieldOptions_person = [
+            {text:"全部", value:"all"},
+            {text:"1", value:"startDate"},
+            {text:"2", value:"endDate"},
+            {text:"3", value:"forUserDate"},
+            {text:"4", value:"plannedStartDate"},
+            {text:"5", value:"plannedEndDate"},
+            {text:"6", value:"actualStartDate"},
+            {text:"7", value:"actualEndDate"}
+        ];
         fieldSelect.style.marginRight="5px";
+
 
         // 操作選擇下拉
         const actionSelect = document.createElement("select");
@@ -126,7 +136,13 @@
             assigneeSelect.style.display = isFillName ? "inline-block" : "none";
             baseDateInput.style.display = isFillName ? "none" : "inline-block";
             offsetInput.style.display = isFillName ? "none" : "inline-block";
+
+            // 更新欄位下拉選項
+            while(fieldSelect.options.length > 0) fieldSelect.remove(0); // 清空
+            const opts = isFillName ? fieldOptions_person : fieldOptions_date;
+            opts.forEach(opt => fieldSelect.add(new Option(opt.text, opt.value)));
         });
+
 
         // 執行按鈕
         const btnExecute = document.createElement("button");
