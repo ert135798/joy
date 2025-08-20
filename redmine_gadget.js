@@ -1,13 +1,10 @@
 // ==UserScript==
-// @name         Redmine Custom Date Input (含SD + 實際日期 + 收合預設隱藏)
+// @name         Redmine Custom Panel 精簡版 v2
 // @namespace    http://tampermonkey.net/
-// @version      2.8 調整畫面
-// @description  GITHUB版本  2.7 增加共用角色和預計(追蹤用)欄位
-// @description  (過去) 2.6.3 改背景設碼#CCEEFF Redmine 左下角輸入框，可依勾選角色與欄位類型填入欄位，支援基準日期 + 偏移，清空依角色+類別欄位，預設收合且隱藏背景與邊框
+// @version      2.11
+// @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉
 // @match        http://*/redmine/*
 // @grant        none
-// @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
-// @downloadURL  https://ert135798.github.io/joy/redmine_gadget.js
 // ==/UserScript==
 
 (function() {
@@ -16,16 +13,16 @@
     function addInput() {
         if (document.getElementById("redmineCustomDateWrapper")) return;
 
-
-
-
         const wrapper = document.createElement("div");
         wrapper.id = "redmineCustomDateWrapper";
         wrapper.style.position = "fixed";
         wrapper.style.bottom = "20px";
         wrapper.style.right = "20px";
+        wrapper.style.zIndex = "999999";
+        wrapper.style.padding = "10px";
+        wrapper.style.borderRadius = "8px";
 
-       // 收合按鈕
+        // 收合按鈕
         const toggleBtn = document.createElement("button");
         toggleBtn.style.position = "absolute";
         toggleBtn.style.top = "-20px";
@@ -37,9 +34,8 @@
         const container = document.createElement("div");
         wrapper.appendChild(container);
 
-        // 預設收合(開著的話=true，關著的話=false)
+        //預設常駐打開=true,反之false
         let isOpen = true;
-        // 起始狀態設定
         if(isOpen) {
             wrapper.style.background = "#CCEEFF";
             wrapper.style.border = "1px solid #ccc";
@@ -50,268 +46,243 @@
             wrapper.style.border = "none";
             toggleBtn.innerText = "▼";
         }
-        wrapper.style.padding = "10px";
-        wrapper.style.borderRadius = "8px";
-        wrapper.style.zIndex = "999999";
 
         // 基準日期
         const baseDateInput = document.createElement("input");
         baseDateInput.type = "date";
-        baseDateInput.id = "baseDate";
         baseDateInput.style.marginRight = "5px";
         baseDateInput.value = new Date().toISOString().split('T')[0];
 
         // 偏移天數
         const offsetInput = document.createElement("input");
         offsetInput.type = "number";
-        offsetInput.id = "dayOffset";
-        offsetInput.placeholder = "執行天數 0=基準日";
-        offsetInput.style.width = "70px";
+        offsetInput.placeholder = "偏移天數 0=基準日";
+        offsetInput.style.width = "120px";
         offsetInput.style.marginRight = "5px";
         offsetInput.value = "0";
 
         // 角色勾選框
+        const roles = ["SA","PG","SD","TESTER","ALL"];
         const roleWrapper = document.createElement("span");
         roleWrapper.style.marginRight = "5px";
-        const roles = ["SA","PG","SD","TESTER","ALL"];
         const roleCheckboxes = {};
-        roles.forEach(r => {
+        roles.forEach(r=>{
             const label = document.createElement("label");
-            label.style.marginRight = "5px";
-            const cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.value = r;
+            label.style.marginRight="5px";
+            const cb=document.createElement("input");
+            cb.type="checkbox";
+            cb.value=r;
             label.appendChild(cb);
             label.appendChild(document.createTextNode(r));
             roleWrapper.appendChild(label);
-            roleCheckboxes[r] = cb;
+            roleCheckboxes[r]=cb;
         });
 
         // 欄位類型下拉
         const fieldSelect = document.createElement("select");
         const fieldOptions = [
-            {text: "全部", value: "all"},
-            {text: "開始日", value: "startDate"},
-            {text: "結束日", value: "endDate"},
-            {text: "預計(追蹤用)", value: "forUserDate"},
-            {text: "預計開始日", value: "plannedStartDate"},
-            {text: "預計結束日", value: "plannedEndDate"},
-            {text: "實際開始日", value: "actualStartDate"},
-            {text: "實際結束日", value: "actualEndDate"}
+            {text:"全部", value:"all"},
+            {text:"開始日", value:"startDate"},
+            {text:"結束日", value:"endDate"},
+            {text:"預計(追蹤用)", value:"forUserDate"},
+            {text:"預計開始日", value:"plannedStartDate"},
+            {text:"預計結束日", value:"plannedEndDate"},
+            {text:"實際開始日", value:"actualStartDate"},
+            {text:"實際結束日", value:"actualEndDate"}
         ];
-        fieldOptions.forEach(opt => {
-            const option = document.createElement("option");
-            option.text = opt.text;
-            option.value = opt.value;
-            fieldSelect.add(option);
-        });
-        fieldSelect.style.marginRight = "5px";
+        fieldOptions.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
+        fieldSelect.style.marginRight="5px";
+
+        // 操作選擇下拉
+        const actionSelect = document.createElement("select");
+        actionSelect.style.marginRight="5px";
+        [
+            {text:"填日期", value:"fillDate"},
+            {text:"填人員", value:"fillName"}
+        ].forEach(a=>actionSelect.add(new Option(a.text,a.value)));
+        actionSelect.value="fillDate";
 
         // 指派人下拉
-//         const assigneeSelect = document.createElement("select");
-//         assigneeSelect.id = "customAssigneeSelect";
-//         assigneeSelect.style.marginRight = "5px";
-//         assigneeSelect.style.minWidth = "120px";
+        const assigneeSelect = document.createElement("select");
+        assigneeSelect.style.marginRight="5px";
+        assigneeSelect.style.minWidth="120px";
+        assigneeSelect.style.display = "none"; // 初始隱藏
 
-//         const issueAssignee = document.getElementById("issue_assigned_to_id");
-//         if(issueAssignee){
-//             Array.from(issueAssignee.options).forEach(opt => {
-//                 const newOpt = document.createElement("option");
-//                 newOpt.value = opt.value;
-//                 newOpt.text = opt.text;
-//                 assigneeSelect.add(newOpt);
-//             });
-//         }
+        const issueAssignee = document.getElementById("issue_assigned_to_id");
+        if(issueAssignee){
+            Array.from(issueAssignee.options).forEach(opt=>{
+                assigneeSelect.add(new Option(opt.text,opt.value));
+            });
+        }
+        const currentUser = document.querySelector("a.user.active");
+        if(currentUser){
+            const match=currentUser.href.match(/\/users\/(\d+)/);
+            if(match) assigneeSelect.value = match[1];
+        }
 
-//         // 抓當前登入使用者
-//         const currentUser = document.querySelector("a.user.active");
-//         if(currentUser){
-//             const match = currentUser.href.match(/\/users\/(\d+)/);
-//             if(match){
-//                 const userId = match[1]; // 使用者ID
-//                 // 設定下拉預設值（如果選單裡有這個值才會選中）
-//                 assigneeSelect.value = userId;
-//             }
-//         }
+        // 監聽操作下拉切換顯示
+        actionSelect.addEventListener("change", ()=>{
+            const isFillName = actionSelect.value === "fillName";
+            assigneeSelect.style.display = isFillName ? "inline-block" : "none";
+            baseDateInput.style.display = isFillName ? "none" : "inline-block";
+            offsetInput.style.display = isFillName ? "none" : "inline-block";
+        });
 
-        // 按鈕
-        const btnFill = document.createElement("button");
-        btnFill.innerText = "填日期";
-        btnFill.style.marginRight = "5px";
-        const btnClear = document.createElement("button");
-        btnClear.innerText = "清空欄位";
-        btnFill.style.marginRight = "5px";
-        // // 新增「填人員」按鈕
-        // const btnFillName = document.createElement("button");
-        // btnFillName.innerText = "填人員";
-        // btnFillName.style.marginRight = "5px";
+        // 執行按鈕
+        const btnExecute = document.createElement("button");
+        btnExecute.innerText="執行";
+        btnExecute.style.marginRight="5px";
 
-        // 將控件加入 container
+        // 清空按鈕
+        const btnClear=document.createElement("button");
+        btnClear.innerText="清空欄位";
 
+        // 加入 container
+        container.appendChild(actionSelect);
+
+        container.appendChild(assigneeSelect);
         container.appendChild(roleWrapper);
         container.appendChild(fieldSelect);
         container.appendChild(baseDateInput);
         container.appendChild(offsetInput);
-        container.appendChild(btnFill);
-        //container.appendChild(assigneeSelect); // 放到填名稱前
-        //container.appendChild(btnFillName);
-        container.appendChild(btnClear);
+        container.appendChild(btnExecute);
+        container.appendChild(btnClear);//清空欄位
+
 
         document.body.appendChild(wrapper);
 
-        // 角色欄位定義
+        // 日期填寫函數
         const roleFields = {
-            "SA": [10,17,18,25],
-            "SD": [39,40,41,42],
-            "PG": [19,20,21,26],
-            "TESTER": [45,46,47,48],
-            "ALL": []
+            "SA":[10,17,18,25],
+            "SD":[39,40,41,42],
+            "PG":[19,20,21,26],
+            "TESTER":[45,46,47,48],
+            "ALL":[]
         };
+        const startDateFields=[10,18,19,21,45,47,39,41,33];
+        const endDateFields=[17,25,20,26,46,48,40,42,34];
+        const plannedStartFields=[10,39,19,45];
+        const plannedEndFields=[17,40,20,41];
+        const actualStartFields=[18,41,21,47];
+        const actualEndFields=[25,42,26,48];
+        const forUserDate=[33,34,"issue_due_date"];
 
-        // 欄位分類
-        const startDateFields = [10,18,19,21,45,47,39,41,33];
-        const endDateFields = [17,25,20,26,46,48,40,42,34];
-        const plannedStartFields = [10,39,19,45];//預計開始
-        const plannedEndFields = [17,40,20,41];//預計結束
-        const actualStartFields = [18,41,21,47];
-        const actualEndFields = [25,42,26,48];
-        const forUserDate = [33,34,"issue_due_date"];//預計(追蹤)用欄位
-
-        // 計算日期
-        function getDateFromBase(base, offsetDays = 0) {
-            const date = new Date(base);
-            date.setDate(date.getDate() + offsetDays);
-            const y = String(date.getFullYear()).padStart(4, "0");
-            const m = String(date.getMonth() + 1).padStart(2, "0");
-            const d = String(date.getDate()).padStart(2, "0");
-            return `${y}-${m}-${d}`;
+        function getDateFromBase(base,offset=0){
+            const d=new Date(base);
+            d.setDate(d.getDate()+offset);
+            const y=String(d.getFullYear()).padStart(4,"0");
+            const m=String(d.getMonth()+1).padStart(2,"0");
+            const day=String(d.getDate()).padStart(2,"0");
+            return `${y}-${m}-${day}`;
         }
 
-        // 填入日期
-        function fillDate(offsetDays, fieldType, baseDate) {
-            const ddd = getDateFromBase(baseDate, offsetDays);
-            const selectedRoles = roles.filter(r => roleCheckboxes[r].checked);
-            if(selectedRoles.length === 0) { alert("⚠️ 請勾選至少一個角色"); return; }
+        function fillDate(offsetDays,fieldType,baseDate){
+            const d=getDateFromBase(baseDate,offsetDays);
+            const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
+            if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
 
-            selectedRoles.forEach(role => {
-                let ids = [];
-                if(role === "ALL") {
-                    if(fieldType === "startDate") ids = startDateFields;
-                    else if(fieldType === "endDate") ids = endDateFields;
-                    else if(fieldType === "plannedStartDate") ids = plannedStartFields;
-                    else if(fieldType === "plannedEndDate") ids = plannedEndFields;
-                    else if(fieldType === "actualStartDate") ids = actualStartFields;
-                    else if(fieldType === "actualEndDate") ids = actualEndFields;
-                    else if(fieldType === "forUserDate") ids = forUserDate;
-                    else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields,...forUserDate];
+            selectedRoles.forEach(role=>{
+                let ids=[];
+                if(role==="ALL"){
+                    ids = fieldType==="startDate"?startDateFields
+                        :fieldType==="endDate"?endDateFields
+                        :fieldType==="plannedStartDate"?plannedStartFields
+                        :fieldType==="plannedEndDate"?plannedEndFields
+                        :fieldType==="actualStartDate"?actualStartFields
+                        :fieldType==="actualEndDate"?actualEndFields
+                        :fieldType==="forUserDate"?forUserDate
+                        :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
                 } else {
-                    const roleIds = roleFields[role] || [];
-                    if(fieldType === "all") ids = roleIds;
-                    else if(fieldType === "startDate") ids = roleIds.filter(id => startDateFields.includes(id));
-                    else if(fieldType === "endDate") ids = roleIds.filter(id => endDateFields.includes(id));
-                    else if(fieldType === "plannedStartDate") ids = roleIds.filter(id => plannedStartFields.includes(id));
-                    else if(fieldType === "plannedEndDate") ids = roleIds.filter(id => plannedEndFields.includes(id));
-                    else if(fieldType === "actualStartDate") ids = roleIds.filter(id => actualStartFields.includes(id));
-                    else if(fieldType === "actualEndDate") ids = roleIds.filter(id => actualEndFields.includes(id));
-                    else if(fieldType === "forUserDate") ids = roleIds.filter(id => forUserDate.includes(id));
+                    const roleIds=roleFields[role]||[];
+                    ids = fieldType==="all"?roleIds
+                        :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
+                        :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
+                        :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
+                        :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
+                        :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
+                        :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
+                        :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
+                        :[];
                 }
-                ids.forEach(id => {
-                    let el;
-                    if (typeof id === "number") {
-                        el = document.getElementById(`issue_custom_field_values_${id}`);
-                    } else if (typeof id === "string") {
-                       el = document.getElementById(id);// 直接用字串當 DOM id
-                    }
-                    if (el) el.value = ddd;// 或清空時 el.value = ""
+                ids.forEach(id=>{
+                    let el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
+                    if(el) el.value=d;
                 });
             });
             alert(`✅ 已填入 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位`);
         }
 
-        // 清空欄位
-        function clearFields() {
-            const selectedRoles = roles.filter(r => roleCheckboxes[r].checked);
-            const fieldType = fieldSelect.value;
-            if(selectedRoles.length === 0) { alert("⚠️ 請勾選至少一個角色"); return; }
+        function fillName(){
+            const nameInput=document.getElementById("issue_subject");
+            if(!nameInput){ alert("⚠️ 找不到名稱欄位"); return; }
+            const nameValue=prompt("請輸入名稱","");
+            if(nameValue!==null){ nameInput.value=nameValue; alert(`✅ 名稱已設定為：${nameValue}`);}
+        }
 
-            selectedRoles.forEach(role => {
-                let ids = [];
-                if(role === "ALL") {
-                    if(fieldType === "startDate") ids = startDateFields;
-                    else if(fieldType === "endDate") ids = endDateFields;
-                    else if(fieldType === "plannedStartDate") ids = plannedStartFields;
-                    else if(fieldType === "plannedEndDate") ids = plannedEndFields;
-                    else if(fieldType === "actualStartDate") ids = actualStartFields;
-                    else if(fieldType === "actualEndDate") ids = actualEndFields;
-                    else if(fieldType === "forUserDate") ids = forUserDate;
-                    else ids = [...startDateFields, ...endDateFields, ...plannedStartFields, ...plannedEndFields, ...actualStartFields, ...actualEndFields,...forUserDate];
+        function clearFields(){
+            const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
+            const fieldType=fieldSelect.value;
+            if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
+
+            selectedRoles.forEach(role=>{
+                let ids=[];
+                if(role==="ALL"){
+                    ids = fieldType==="startDate"?startDateFields
+                        :fieldType==="endDate"?endDateFields
+                        :fieldType==="plannedStartDate"?plannedStartFields
+                        :fieldType==="plannedEndDate"?plannedEndFields
+                        :fieldType==="actualStartDate"?actualStartFields
+                        :fieldType==="actualEndDate"?actualEndFields
+                        :fieldType==="forUserDate"?forUserDate
+                        :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
                 } else {
-                    const roleIds = roleFields[role] || [];
-                    if(fieldType === "all") ids = roleIds;
-                    else if(fieldType === "startDate") ids = roleIds.filter(id => startDateFields.includes(id));
-                    else if(fieldType === "endDate") ids = roleIds.filter(id => endDateFields.includes(id));
-                    else if(fieldType === "plannedStartDate") ids = roleIds.filter(id => plannedStartFields.includes(id));
-                    else if(fieldType === "plannedEndDate") ids = roleIds.filter(id => plannedEndFields.includes(id));
-                    else if(fieldType === "actualStartDate") ids = roleIds.filter(id => actualStartFields.includes(id));
-                    else if(fieldType === "actualEndDate") ids = roleIds.filter(id => actualEndFields.includes(id));
-                    else if(fieldType === "forUserDate") ids = roleIds.filter(id => forUserDate.includes(id));
+                    const roleIds=roleFields[role]||[];
+                    ids = fieldType==="all"?roleIds
+                        :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
+                        :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
+                        :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
+                        :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
+                        :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
+                        :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
+                        :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
+                        :[];
                 }
-
-
-                ids.forEach(id => {
-                    let el;
-                    if (typeof id === "number") {
-                        el = document.getElementById(`issue_custom_field_values_${id}`);
-                    } else if (typeof id === "string") {
-                        el = document.getElementById(id);// 直接用字串當 DOM id
-                    }
-                    if(el) el.value = "";
+                ids.forEach(id=>{
+                    let el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
+                    if(el) el.value="";
                 });
             });
 
-            // 🔹 同時處理 link_copy
-            const linkCopy = document.getElementById("link_copy");
-            if (linkCopy && linkCopy.type === "checkbox") {
-                linkCopy.checked = false;// 清除時取消勾選
-            }
-
+            const linkCopy=document.getElementById("link_copy");
+            if(linkCopy && linkCopy.type==="checkbox") linkCopy.checked=false;
             alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位，並取消 link_copy 勾選`);
         }
 
-        // 按鈕事件
-        btnFill.addEventListener("click", () => {
-            const offset = parseInt(offsetInput.value);
-            if (isNaN(offset)) { alert("⚠️ 請輸入有效天數數字"); return; }
-            const fieldType = fieldSelect.value;
-            const baseDate = baseDateInput.value;
-            if (!baseDate) { alert("⚠️ 請選擇基準日期"); return; }
-            fillDate(offset, fieldType, baseDate);
+        btnExecute.addEventListener("click", ()=>{
+            if(actionSelect.value==="fillDate"){
+                const offset=parseInt(offsetInput.value);
+                if(isNaN(offset)){ alert("⚠️ 請輸入有效天數數字"); return; }
+                const baseDate=baseDateInput.value;
+                if(!baseDate){ alert("⚠️ 請選擇基準日期"); return; }
+                fillDate(offset,fieldSelect.value,baseDate);
+            } else if(actionSelect.value==="fillName"){
+                const selectedUserId = assigneeSelect.value;
+                const assigneeInput = document.getElementById("issue_assigned_to_id");
+                if(assigneeInput) assigneeInput.value = selectedUserId;
+                fillName();
+            }
         });
 
-        btnClear.addEventListener("click", () => { clearFields(); });
+        btnClear.addEventListener("click", ()=>clearFields());
 
-         // 收合/展開
-        toggleBtn.addEventListener("click", () => {
-            isOpen = !isOpen;
-            container.style.display = isOpen ? "block" : "none";
-            wrapper.style.background = isOpen ? "#CCEEFF" : "transparent";
-            wrapper.style.border = isOpen ? "1px solid #ccc" : "none";
-            toggleBtn.innerText = isOpen ? "▲" : "▼";
-        });
-
-        // 填名稱事件
-        btnFillName.addEventListener("click", () => {
-            const nameInput = document.getElementById("issue_subject"); // 標題欄位ID
-            if (!nameInput) {
-                alert("⚠️ 找不到名稱欄位");
-                return;
-            }
-            const nameValue = prompt("請輸入名稱：", "");
-            if (nameValue !== null) {
-                nameInput.value = nameValue;
-                alert(`✅ 名稱已設定為：${nameValue}`);
-            }
+        toggleBtn.addEventListener("click", ()=>{
+            isOpen=!isOpen;
+            container.style.display=isOpen?"block":"none";
+            wrapper.style.background=isOpen?"#CCEEFF":"transparent";
+            wrapper.style.border=isOpen?"1px solid #ccc":"none";
+            toggleBtn.innerText=isOpen?"▲":"▼";
         });
     }
+
     window.addEventListener('load', addInput);
 })();
