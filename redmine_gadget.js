@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2
 // @namespace    http://tampermonkey.net/
-// @version      2.12
-// @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉
+// @version      2.13
+// @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉（支援下拉選項填值）
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -13,6 +13,8 @@
     'use strict';
 
     function addInput() {
+
+        let isOpen = true;
         if (document.getElementById("redmineCustomDateWrapper")) return;
 
         const wrapper = document.createElement("div");
@@ -24,7 +26,6 @@
         wrapper.style.padding = "10px";
         wrapper.style.borderRadius = "8px";
 
-        // 收合按鈕
         const toggleBtn = document.createElement("button");
         toggleBtn.style.position = "absolute";
         toggleBtn.style.top = "-20px";
@@ -32,12 +33,9 @@
         toggleBtn.style.padding = "2px 5px";
         wrapper.appendChild(toggleBtn);
 
-        // 內容區塊
         const container = document.createElement("div");
         wrapper.appendChild(container);
 
-        //預設常駐打開=true,反之false
-        let isOpen = false;
         if(isOpen) {
             wrapper.style.background = "#CCEEFF";
             wrapper.style.border = "1px solid #ccc";
@@ -80,7 +78,7 @@
             roleCheckboxes[r]=cb;
         });
 
-        // 欄位類型下拉
+        // 欄位下拉
         const fieldSelect = document.createElement("select");
         const fieldOptions_date = [
             {text:"全部", value:"all"},
@@ -92,21 +90,15 @@
             {text:"實際開始日", value:"actualStartDate"},
             {text:"實際結束日", value:"actualEndDate"}
         ];
-         const fieldOptions_person = [
+        const fieldOptions_person = [
             {text:"全部", value:"all"},
-            {text:"1", value:"startDate"},
-            {text:"2", value:"endDate"},
-            {text:"3", value:"forUserDate"},
-            {text:"4", value:"plannedStartDate"},
-            {text:"5", value:"plannedEndDate"},
-            {text:"6", value:"actualStartDate"},
-            {text:"7", value:"actualEndDate"}
+            {text:"追蹤欄位", value:"tracking"},
+            {text:"簽名", value:"signature"}
         ];
         fieldOptions_date.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
         fieldSelect.style.marginRight="5px";
 
-
-        // 操作選擇下拉
+        // 操作下拉
         const actionSelect = document.createElement("select");
         actionSelect.style.marginRight="5px";
         [
@@ -119,7 +111,7 @@
         const assigneeSelect = document.createElement("select");
         assigneeSelect.style.marginRight="5px";
         assigneeSelect.style.minWidth="120px";
-        assigneeSelect.style.display = "none"; // 初始隱藏
+        assigneeSelect.style.display = "none";
 
         const issueAssignee = document.getElementById("issue_assigned_to_id");
         if(issueAssignee){
@@ -133,44 +125,19 @@
             if(match) assigneeSelect.value = match[1];
         }
 
-        // 監聽操作下拉切換顯示
+        // 切換操作
         actionSelect.addEventListener("change", ()=>{
             const isFillName = actionSelect.value === "fillName";
             assigneeSelect.style.display = isFillName ? "inline-block" : "none";
             baseDateInput.style.display = isFillName ? "none" : "inline-block";
             offsetInput.style.display = isFillName ? "none" : "inline-block";
 
-            // 更新欄位下拉選項
-            while(fieldSelect.options.length > 0) fieldSelect.remove(0); // 清空
+            while(fieldSelect.options.length>0) fieldSelect.remove(0);
             const opts = isFillName ? fieldOptions_person : fieldOptions_date;
-            opts.forEach(opt => fieldSelect.add(new Option(opt.text, opt.value)));
+            opts.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
         });
 
-
-        // 執行按鈕
-        const btnExecute = document.createElement("button");
-        btnExecute.innerText="執行";
-        btnExecute.style.marginRight="5px";
-
-        // 清空按鈕
-        const btnClear=document.createElement("button");
-        btnClear.innerText="清空欄位";
-
-        // 加入 container
-        container.appendChild(actionSelect);
-
-        container.appendChild(assigneeSelect);
-        container.appendChild(roleWrapper);
-        container.appendChild(fieldSelect);
-        container.appendChild(baseDateInput);
-        container.appendChild(offsetInput);
-        container.appendChild(btnExecute);
-        container.appendChild(btnClear);//清空欄位
-
-
-        document.body.appendChild(wrapper);
-
-        // 日期填寫函數
+        // 控制欄位對應
         const roleFields = {
             "SA":[10,17,18,25],
             "SD":[39,40,41,42],
@@ -193,6 +160,16 @@
             const m=String(d.getMonth()+1).padStart(2,"0");
             const day=String(d.getDate()).padStart(2,"0");
             return `${y}-${m}-${day}`;
+        }
+
+        function setValue(el,value){
+            if(!el) return;
+            if(el.tagName === "SELECT"){
+                const opt = Array.from(el.options).find(o => o.value === value || o.text === value);
+                if(opt) el.value = opt.value;
+            } else {
+                el.value = value;
+            }
         }
 
         function fillDate(offsetDays,fieldType,baseDate){
@@ -224,18 +201,59 @@
                         :[];
                 }
                 ids.forEach(id=>{
-                    let el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
-                    if(el) el.value=d;
+                    const el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
+                    setValue(el,d);
                 });
             });
             alert(`✅ 已填入 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位`);
         }
 
-        function fillName(){
-            const nameInput=document.getElementById("issue_subject");
-            if(!nameInput){ alert("⚠️ 找不到名稱欄位"); return; }
-            const nameValue=prompt("請輸入名稱","");
-            if(nameValue!==null){ nameInput.value=nameValue; alert(`✅ 名稱已設定為：${nameValue}`);}
+        function fillName() {
+            const selectedUserId = assigneeSelect.value;
+            if (!selectedUserId) {
+                alert("⚠️ 請選擇指派人");
+                return;
+            }
+
+            const fieldType = fieldSelect.value;
+            const targetFields = [];
+
+            if (fieldType === "tracking") {
+                targetFields.push("issue_assigned_to_id", "issue_custom_field_values_38");
+            } else if (fieldType === "signature") {
+                targetFields.push("issue_custom_field_values_27", "issue_custom_field_values_43", "issue_custom_field_values_28", "issue_custom_field_values_44");
+            } else if (fieldType === "all") {
+                targetFields.push(
+                    "issue_assigned_to_id",
+                    "issue_custom_field_values_38",
+                    "issue_custom_field_values_27",
+                    "issue_custom_field_values_43",
+                    "issue_custom_field_values_28",
+                    "issue_custom_field_values_44"
+                );
+            }
+
+            // 填入對應欄位（如果是 select 就選中對應值）
+            targetFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (el.tagName === "SELECT") {
+                        const opt = Array.from(el.options).find(o => o.value === selectedUserId);
+                        if (opt) el.value = opt.value;
+                    } else {
+                        el.value = selectedUserId;
+                    }
+                }
+            });
+
+            // 移除原本 prompt 輸入名稱
+            // const nameInput = document.getElementById("issue_subject");
+            // if(nameInput){
+            //     const nameValue = prompt("請輸入名稱","");
+            //     if(nameValue!==null) nameInput.value = nameValue;
+            // }
+
+            alert(`✅ 已將使用者 ID ${selectedUserId} 填入 ${fieldSelect.options[fieldSelect.selectedIndex].text} 欄位`);
         }
 
         function clearFields(){
@@ -267,8 +285,11 @@
                         :[];
                 }
                 ids.forEach(id=>{
-                    let el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
-                    if(el) el.value="";
+                    const el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
+                    if(el){
+                        if(el.tagName==="SELECT") el.selectedIndex=0;
+                        else el.value="";
+                    }
                 });
             });
 
@@ -277,6 +298,10 @@
             alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位，並取消 link_copy 勾選`);
         }
 
+        // 按鈕
+        const btnExecute = document.createElement("button");
+        btnExecute.innerText="執行";
+        btnExecute.style.marginRight="5px";
         btnExecute.addEventListener("click", ()=>{
             if(actionSelect.value==="fillDate"){
                 const offset=parseInt(offsetInput.value);
@@ -285,14 +310,24 @@
                 if(!baseDate){ alert("⚠️ 請選擇基準日期"); return; }
                 fillDate(offset,fieldSelect.value,baseDate);
             } else if(actionSelect.value==="fillName"){
-                const selectedUserId = assigneeSelect.value;
-                const assigneeInput = document.getElementById("issue_assigned_to_id");
-                if(assigneeInput) assigneeInput.value = selectedUserId;
                 fillName();
             }
         });
 
-        btnClear.addEventListener("click", ()=>clearFields());
+        const btnClear=document.createElement("button");
+        btnClear.innerText="清空欄位";
+        btnClear.addEventListener("click", clearFields);
+
+        container.appendChild(actionSelect);
+        container.appendChild(assigneeSelect);
+        container.appendChild(roleWrapper);
+        container.appendChild(fieldSelect);
+        container.appendChild(baseDateInput);
+        container.appendChild(offsetInput);
+        container.appendChild(btnExecute);
+        container.appendChild(btnClear);
+
+        document.body.appendChild(wrapper);
 
         toggleBtn.addEventListener("click", ()=>{
             isOpen=!isOpen;
@@ -301,6 +336,30 @@
             wrapper.style.border=isOpen?"1px solid #ccc":"none";
             toggleBtn.innerText=isOpen?"▲":"▼";
         });
+        //預估工時值異動 總預估工時欄位跟著加總
+        function autoSumEstimatedHours(){
+            const ids = [55, 57, 58, 59]; // SA, SD, PG, TESTER 欄位 ID
+            const getValue = (id) => {
+                const el = document.getElementById(`issue_custom_field_values_${id}`);
+                if (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value))) {
+                    return parseFloat(el.value);
+                }
+                return 0;
+            };
+            let total = ids.reduce((sum, id) => sum + getValue(id), 0);
+            const target = document.getElementById("issue_estimated_hours");
+            if (target) target.value = total;
+        }
+
+        // 綁定監聽事件
+        [55, 57, 58, 59].forEach(id => {
+            const el = document.getElementById(`issue_custom_field_values_${id}`);
+            if (el) {
+                el.addEventListener("input", autoSumEstimatedHours);
+                el.addEventListener("change", autoSumEstimatedHours);
+            }
+        });
+
     }
 
     window.addEventListener('load', addInput);
