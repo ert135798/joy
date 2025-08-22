@@ -1,21 +1,27 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2
+// @name         Redmine Custom Panel 精簡版 v2.18.2
 // @namespace    http://tampermonkey.net/
-// @version      2.15
-// @description  完善填人員邏輯
+// @version      2.18.2
+// @description  完整整合版：填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
 // @downloadURL  https://ert135798.github.io/joy/redmine_gadget.js
+// @run-at       document-idle
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    function addInput() {
+    const PANEL_KEY = 'redmineCustomPanelState';
 
-        let isOpen = false;
+    function savePanelState(state) { localStorage.setItem(PANEL_KEY, JSON.stringify(state)); }
+    function loadPanelState() { try { return JSON.parse(localStorage.getItem(PANEL_KEY)) || {}; } catch(e){ return {}; } }
+
+    function addInput() {
         if (document.getElementById("redmineCustomDateWrapper")) return;
+
+        const state = loadPanelState();
 
         const wrapper = document.createElement("div");
         wrapper.id = "redmineCustomDateWrapper";
@@ -25,6 +31,9 @@
         wrapper.style.zIndex = "999999";
         wrapper.style.padding = "10px";
         wrapper.style.borderRadius = "8px";
+        wrapper.style.visibility = "hidden";
+
+        let isOpen = state.isOpen ?? false;
 
         const toggleBtn = document.createElement("button");
         toggleBtn.style.position = "absolute";
@@ -34,26 +43,18 @@
         wrapper.appendChild(toggleBtn);
 
         const container = document.createElement("div");
+        container.style.display = isOpen ? "block" : "none";
+        wrapper.style.background = isOpen ? "#CCEEFF" : "transparent";
+        wrapper.style.border = isOpen ? "1px solid #ccc" : "none";
+        toggleBtn.innerText = isOpen ? "▲" : "▼";
         wrapper.appendChild(container);
 
-        if(isOpen) {
-            wrapper.style.background = "#CCEEFF";
-            wrapper.style.border = "1px solid #ccc";
-            toggleBtn.innerText = "▲";
-        } else {
-            container.style.display = "none";
-            wrapper.style.background = "transparent";
-            wrapper.style.border = "none";
-            toggleBtn.innerText = "▼";
-        }
-
-        // 基準日期
+        // 基準日期 & 偏移天數
         const baseDateInput = document.createElement("input");
         baseDateInput.type = "date";
         baseDateInput.style.marginRight = "5px";
         baseDateInput.value = new Date().toISOString().split('T')[0];
 
-        // 偏移天數
         const offsetInput = document.createElement("input");
         offsetInput.type = "number";
         offsetInput.placeholder = "偏移天數 0=基準日";
@@ -72,14 +73,23 @@
             const cb=document.createElement("input");
             cb.type="checkbox";
             cb.value=r;
+            cb.checked = state.roles?.[r] ?? false;
             label.appendChild(cb);
             label.appendChild(document.createTextNode(r));
             roleWrapper.appendChild(label);
             roleCheckboxes[r]=cb;
+
+            cb.addEventListener("change", ()=>{
+                savePanelState({
+                    ...loadPanelState(),
+                    roles: Object.fromEntries(Object.entries(roleCheckboxes).map(([k,v])=>[k,v.checked]))
+                });
+            });
         });
 
         // 欄位下拉
         const fieldSelect = document.createElement("select");
+        fieldSelect.style.marginRight="5px";
         const fieldOptions_date = [
             {text:"全部", value:"all"},
             {text:"開始日", value:"startDate"},
@@ -95,8 +105,13 @@
             {text:"追蹤欄位", value:"tracking"},
             {text:"簽名", value:"signature"}
         ];
-        fieldOptions_date.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
-        fieldSelect.style.marginRight="5px";
+
+        function populateFieldSelect(isName){
+            while(fieldSelect.options.length>0) fieldSelect.remove(0);
+            const opts = isName ? fieldOptions_person : fieldOptions_date;
+            opts.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
+            fieldSelect.value = state.fieldSelect ?? opts[0].value;
+        }
 
         // 操作下拉
         const actionSelect = document.createElement("select");
@@ -105,45 +120,45 @@
             {text:"填日期", value:"fillDate"},
             {text:"填人員", value:"fillName"}
         ].forEach(a=>actionSelect.add(new Option(a.text,a.value)));
-        actionSelect.value="fillDate";
+        actionSelect.value = state.actionSelect ?? "fillDate";
 
         // 指派人下拉
         const assigneeSelect = document.createElement("select");
         assigneeSelect.style.marginRight="5px";
         assigneeSelect.style.minWidth="120px";
-        assigneeSelect.style.display = "none";
 
         const issueAssignee = document.getElementById("issue_assigned_to_id");
-        if(issueAssignee){
-            Array.from(issueAssignee.options).forEach(opt=>{
-                assigneeSelect.add(new Option(opt.text,opt.value));
-            });
-        }
+        if(issueAssignee) Array.from(issueAssignee.options).forEach(opt=>assigneeSelect.add(new Option(opt.text,opt.value)));
+
         const currentUser = document.querySelector("a.user.active");
         if(currentUser){
             const match=currentUser.href.match(/\/users\/(\d+)/);
             if(match) assigneeSelect.value = match[1];
         }
 
-        // 切換操作
-        actionSelect.addEventListener("change", ()=>{
+        // 根據 actionSelect 控制欄位顯示
+        function updateFieldsDisplay() {
             const isFillName = actionSelect.value === "fillName";
             assigneeSelect.style.display = isFillName ? "inline-block" : "none";
             baseDateInput.style.display = isFillName ? "none" : "inline-block";
             offsetInput.style.display = isFillName ? "none" : "inline-block";
+            populateFieldSelect(isFillName);
+        }
 
-            while(fieldSelect.options.length>0) fieldSelect.remove(0);
-            const opts = isFillName ? fieldOptions_person : fieldOptions_date;
-            opts.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
+        updateFieldsDisplay();
+
+        actionSelect.addEventListener("change", ()=>{
+            updateFieldsDisplay();
+            savePanelState({...loadPanelState(), actionSelect: actionSelect.value});
         });
 
-        // 控制欄位對應
-        const roleFields = {
-            "SA":[10,17,18,25],
-            "SD":[39,40,41,42],
-            "PG":[19,20,21,26],
-            "TESTER":[45,46,47,48],
-            "ALL":[]
+        // ====== 欄位映射 ======
+        const roleFieldMap = {
+            "ALL": ["issue_assigned_to_id","issue_custom_field_values_38","issue_custom_field_values_27","issue_custom_field_values_43","issue_custom_field_values_28","issue_custom_field_values_44"],
+            "SA": ["issue_custom_field_values_27"],
+            "SD": ["issue_custom_field_values_43"],
+            "PG": ["issue_custom_field_values_28"],
+            "TESTER": ["issue_custom_field_values_44"]
         };
         const startDateFields=[10,18,19,21,45,47,39,41,33];
         const endDateFields=[17,25,20,26,46,48,40,42,34];
@@ -154,8 +169,7 @@
         const forUserDate=[33,34,"issue_due_date"];
 
         function getDateFromBase(base,offset=0){
-            const d=new Date(base);
-            d.setDate(d.getDate()+offset);
+            const d=new Date(base); d.setDate(d.getDate()+offset);
             const y=String(d.getFullYear()).padStart(4,"0");
             const m=String(d.getMonth()+1).padStart(2,"0");
             const day=String(d.getDate()).padStart(2,"0");
@@ -167,16 +181,13 @@
             if(el.tagName === "SELECT"){
                 const opt = Array.from(el.options).find(o => o.value === value || o.text === value);
                 if(opt) el.value = opt.value;
-            } else {
-                el.value = value;
-            }
+            } else el.value = value;
         }
 
         function fillDate(offsetDays,fieldType,baseDate){
             const d=getDateFromBase(baseDate,offsetDays);
             const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
             if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
-
             selectedRoles.forEach(role=>{
                 let ids=[];
                 if(role==="ALL"){
@@ -189,7 +200,7 @@
                         :fieldType==="forUserDate"?forUserDate
                         :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
                 } else {
-                    const roleIds=roleFields[role]||[];
+                    const roleIds=roleFieldMap[role]||[];
                     ids = fieldType==="all"?roleIds
                         :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
                         :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
@@ -210,143 +221,60 @@
 
         function fillName() {
             const selectedUserId = assigneeSelect.value;
-            if (!selectedUserId) {
-                alert("⚠️ 請選擇指派人");
-                return;
-            }
+            if (!selectedUserId) { alert("⚠️ 請選擇指派人"); return; }
             const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
             if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
 
             const fieldType = fieldSelect.value;
             const targetFields = [];
+            if (fieldType === "tracking") targetFields.push("issue_assigned_to_id","issue_custom_field_values_38");
+            else if (fieldType === "signature") targetFields.push("issue_custom_field_values_27","issue_custom_field_values_43","issue_custom_field_values_28","issue_custom_field_values_44");
+            else if (fieldType === "all") targetFields.push(...roleFieldMap.ALL);
 
-            if (fieldType === "tracking") {
-                // 追蹤欄位
-                targetFields.push("issue_assigned_to_id", "issue_custom_field_values_38");
-            }
-            else if (fieldType === "signature") {
-                // 簽名欄位（固定對應 SA/SD/PG/TESTER）
-                targetFields.push(
-                    "issue_custom_field_values_27", // SA
-                    "issue_custom_field_values_43", // SD
-                    "issue_custom_field_values_28", // PG
-                    "issue_custom_field_values_44" // TESTER
-                );
-            }
-            else if (fieldType === "all") {
-                targetFields.push(
-                    "issue_assigned_to_id",
-                    "issue_custom_field_values_38",
-                    "issue_custom_field_values_27",
-                    "issue_custom_field_values_43",
-                    "issue_custom_field_values_28",
-                    "issue_custom_field_values_44"
-                );
-            }
-
-            // 分派人 ID → 分派人名稱
             const assigneeTextMap = {};
-            Array.from(assigneeSelect.options).forEach(opt => {
-                assigneeTextMap[opt.value] = opt.text.trim();
-            });
+            Array.from(assigneeSelect.options).forEach(opt=>assigneeTextMap[opt.value]=opt.text.trim());
 
-            targetFields.forEach(id => {
-                const el = document.getElementById(id);
-                if (!el) return;
-
+            targetFields.forEach(id=>{
+                const el=document.getElementById(id); if(!el) return;
                 let valueToSet = selectedUserId;
-
-                // 如果是簽名欄位，自動找名稱對應值
-                if (["issue_custom_field_values_27", "issue_custom_field_values_43", "issue_custom_field_values_28", "issue_custom_field_values_44"].includes(id)) {
-                    const assigneeName = assigneeTextMap[selectedUserId];
-                    const matchOpt = Array.from(el.options).find(o => o.text.trim() === assigneeName);
-                    valueToSet = matchOpt ? matchOpt.value : "";
+                if(["issue_custom_field_values_27","issue_custom_field_values_43","issue_custom_field_values_28","issue_custom_field_values_44"].includes(id)){
+                    const assigneeName=assigneeTextMap[selectedUserId];
+                    const matchOpt = Array.from(el.options).find(o=>o.text.trim()===assigneeName);
+                    valueToSet = matchOpt?matchOpt.value:"";
                 }
-
-                if (el.tagName === "SELECT") {
-                    const opt = Array.from(el.options).find(o => o.value === valueToSet);
-                    if (opt) el.value = opt.value;
-                } else {
-                    el.value = valueToSet;
-                }
+                setValue(el,valueToSet);
             });
 
             alert(`✅ 已將「${assigneeTextMap[selectedUserId]}」填入 ${fieldSelect.options[fieldSelect.selectedIndex].text} 欄位`);
         }
 
-
-
-
-       // 角色對應欄位表
-        const roleFieldMap = {
-            "ALL": [
-                "issue_assigned_to_id",
-                "issue_custom_field_values_38",
-                "issue_custom_field_values_27",
-                "issue_custom_field_values_43",
-                "issue_custom_field_values_28",
-                "issue_custom_field_values_44"
-            ],
-            "SA": ["issue_custom_field_values_27"],
-            "SD": ["issue_custom_field_values_43"],
-            "PG": ["issue_custom_field_values_28"],
-            "TESTER": ["issue_custom_field_values_44"]
-        };
-
         function clearFields(){
-            const selectedRoles = roles.filter(r => roleCheckboxes[r].checked);
-            const fieldType = fieldSelect.value;
+            const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
+            const fieldType=fieldSelect.value;
 
-                if (actionSelect.value === "fillName") {
-                    if (selectedRoles.length === 0) {
-                        alert("⚠️ 請勾選至少一個角色");
-                        return;
-                    }
+            if(actionSelect.value==="fillName"){
+                let targetFields=[]
+                if(fieldType==="tracking") targetFields=["issue_assigned_to_id","issue_custom_field_values_38"];
+                else if(fieldType==="signature") targetFields=["issue_custom_field_values_27","issue_custom_field_values_43","issue_custom_field_values_28","issue_custom_field_values_44"];
+                else if(fieldType==="all") targetFields=[...roleFieldMap.ALL];
 
-                    // 依 fieldType 決定要清空的欄位
-                    let targetFields = [];
-                    if (fieldType === "tracking") {
-                        targetFields = ["issue_assigned_to_id", "issue_custom_field_values_38"];
-                    } else if (fieldType === "signature") {
-                        targetFields = [
-                            "issue_custom_field_values_27", // SA
-                            "issue_custom_field_values_43", // SD
-                            "issue_custom_field_values_28", // PG
-                            "issue_custom_field_values_44" // TESTER
-                        ];
-                    } else if (fieldType === "all") {
-                        targetFields = [
-                            "issue_assigned_to_id", "issue_custom_field_values_38",
-                            "issue_custom_field_values_27", "issue_custom_field_values_43",
-                            "issue_custom_field_values_28", "issue_custom_field_values_44"
-                        ];
-                    }
+                targetFields.forEach(id=>{
+                    const el=document.getElementById(id);
+                    if(el){ if(el.tagName==="SELECT") el.selectedIndex=0; else el.value=""; }
+                });
 
-                    targetFields.forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el) {
-                            if (el.tagName === "SELECT") el.selectedIndex = 0;
-                            else el.value = "";
-                        }
-                    });
+                const linkCopy=document.getElementById("link_copy");
+                if(linkCopy && linkCopy.type==="checkbox") linkCopy.checked=false;
 
-                    const linkCopy = document.getElementById("link_copy");
-                    if (linkCopy && linkCopy.type === "checkbox") linkCopy.checked = false;
-
-                    alert(`✅ 已清空 ${fieldType} 欄位並取消 link_copy 勾選`);
-                    return;
-    }
-
-            // 原本日期欄位清空邏輯
-            if(selectedRoles.length===0){
-                alert("⚠️ 請勾選至少一個角色");
+                alert(`✅ 已清空 ${fieldType} 欄位並取消 link_copy 勾選`);
                 return;
             }
 
+            if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
             selectedRoles.forEach(role=>{
                 let ids=[];
                 if(role==="ALL"){
-                    ids = fieldType==="startDate"?startDateFields
+                    ids=fieldType==="startDate"?startDateFields
                     :fieldType==="endDate"?endDateFields
                     :fieldType==="plannedStartDate"?plannedStartFields
                     :fieldType==="plannedEndDate"?plannedEndFields
@@ -355,8 +283,8 @@
                     :fieldType==="forUserDate"?forUserDate
                     :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
                 } else {
-                    const roleIds=roleFields[role]||[];
-                    ids = fieldType==="all"?roleIds
+                    const roleIds=roleFieldMap[role]||[];
+                    ids=fieldType==="all"?roleIds
                     :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
                     :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
                     :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
@@ -367,11 +295,8 @@
                     :[];
                 }
                 ids.forEach(id=>{
-                    const el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
-                    if(el){
-                        if(el.tagName==="SELECT") el.selectedIndex=0;
-                        else el.value="";
-                    }
+                    const el=typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
+                    if(el){ if(el.tagName==="SELECT") el.selectedIndex=0; else el.value=""; }
                 });
             });
 
@@ -381,10 +306,8 @@
             alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位，並取消 link_copy 勾選`);
         }
 
-
-
-        // 按鈕
-        const btnExecute = document.createElement("button");
+        // ====== 按鈕 ======
+        const btnExecute=document.createElement("button");
         btnExecute.innerText="執行";
         btnExecute.style.marginRight="5px";
         btnExecute.addEventListener("click", ()=>{
@@ -403,6 +326,20 @@
         btnClear.innerText="清空欄位";
         btnClear.addEventListener("click", clearFields);
 
+        const btnReset=document.createElement("button");
+        btnReset.innerText="還原預設";
+        btnReset.style.marginLeft="5px";
+        btnReset.addEventListener("click", ()=>{
+            localStorage.removeItem(PANEL_KEY);
+            Object.values(roleCheckboxes).forEach(cb=>cb.checked=false);
+            fieldSelect.value="all";
+            actionSelect.value="fillDate";
+            assigneeSelect.selectedIndex = 1; // <-- 新增這行，清空選人
+            updateFieldsDisplay();
+            toggleBtn.click(); // 收合
+            alert("✅ 已還原預設");
+        });
+
         container.appendChild(actionSelect);
         container.appendChild(assigneeSelect);
         container.appendChild(roleWrapper);
@@ -411,41 +348,40 @@
         container.appendChild(offsetInput);
         container.appendChild(btnExecute);
         container.appendChild(btnClear);
+        container.appendChild(btnReset);
 
         document.body.appendChild(wrapper);
+        wrapper.style.visibility = "visible";
 
         toggleBtn.addEventListener("click", ()=>{
-            isOpen=!isOpen;
-            container.style.display=isOpen?"block":"none";
-            wrapper.style.background=isOpen?"#CCEEFF":"transparent";
-            wrapper.style.border=isOpen?"1px solid #ccc":"none";
-            toggleBtn.innerText=isOpen?"▲":"▼";
+            isOpen = !isOpen;
+            container.style.display = isOpen ? "block" : "none";
+            wrapper.style.background = isOpen ? "#CCEEFF" : "transparent";
+            wrapper.style.border = isOpen ? "1px solid #ccc" : "none";
+            toggleBtn.innerText = isOpen ? "▲" : "▼";
+            savePanelState({...loadPanelState(), isOpen});
         });
-        //預估工時值異動 總預估工時欄位跟著加總
+
+        // ====== 預估工時自動加總 ======
+        const sumIds=[55,57,58,59];
         function autoSumEstimatedHours(){
-            const ids = [55, 57, 58, 59]; // SA, SD, PG, TESTER 欄位 ID
-            const getValue = (id) => {
-                const el = document.getElementById(`issue_custom_field_values_${id}`);
-                if (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value))) {
-                    return parseFloat(el.value);
-                }
-                return 0;
-            };
-            let total = ids.reduce((sum, id) => sum + getValue(id), 0);
-            const target = document.getElementById("issue_estimated_hours");
-            if (target) target.value = total;
+            const total=sumIds.reduce((s,id)=>{
+                const el=document.getElementById(`issue_custom_field_values_${id}`);
+                return s+(el&&el.value.trim()!==""&&!isNaN(parseFloat(el.value))?parseFloat(el.value):0);
+            },0);
+            const target=document.getElementById("issue_estimated_hours");
+            if(target) target.value=total;
         }
-
-        // 綁定監聽事件
-        [55, 57, 58, 59].forEach(id => {
-            const el = document.getElementById(`issue_custom_field_values_${id}`);
-            if (el) {
-                el.addEventListener("input", autoSumEstimatedHours);
-                el.addEventListener("change", autoSumEstimatedHours);
-            }
+        sumIds.forEach(id=>{
+            const el=document.getElementById(`issue_custom_field_values_${id}`);
+            if(el){ el.addEventListener("input",autoSumEstimatedHours); el.addEventListener("change",autoSumEstimatedHours); }
         });
-
     }
 
+    // AJAX 切換 issue 自動掛載
+    const observer=new MutationObserver(()=>addInput());
+    observer.observe(document.body,{childList:true,subtree:true});
+
     window.addEventListener('load', addInput);
+
 })();
