@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2
 // @namespace    http://tampermonkey.net/
-// @version      2.13
+// @version      2.13.1
 // @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉（支援下拉選項填值）
 // @match        http://*/redmine/*
 // @grant        none
@@ -93,7 +93,7 @@
         const fieldOptions_person = [
             {text:"全部", value:"all"},
             {text:"追蹤欄位", value:"tracking"},
-            {text:"簽名", value:"signature"}
+            {text:"簽名(目前用不了)", value:"signature"}
         ];
         fieldOptions_date.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
         fieldSelect.style.marginRight="5px";
