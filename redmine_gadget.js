@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2
 // @namespace    http://tampermonkey.net/
-// @version      2.13.1
-// @description  精簡面板：填日期/填人員，角色、欄位、基準日、偏移、指派人下拉（支援下拉選項填值）
+// @version      2.15
+// @description  完善填人員邏輯
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -93,7 +93,7 @@
         const fieldOptions_person = [
             {text:"全部", value:"all"},
             {text:"追蹤欄位", value:"tracking"},
-            {text:"簽名(目前用不了)", value:"signature"}
+            {text:"簽名", value:"signature"}
         ];
         fieldOptions_date.forEach(opt=>fieldSelect.add(new Option(opt.text,opt.value)));
         fieldSelect.style.marginRight="5px";
@@ -214,15 +214,26 @@
                 alert("⚠️ 請選擇指派人");
                 return;
             }
+            const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
+            if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
 
             const fieldType = fieldSelect.value;
             const targetFields = [];
 
             if (fieldType === "tracking") {
+                // 追蹤欄位
                 targetFields.push("issue_assigned_to_id", "issue_custom_field_values_38");
-            } else if (fieldType === "signature") {
-                targetFields.push("issue_custom_field_values_27", "issue_custom_field_values_43", "issue_custom_field_values_28", "issue_custom_field_values_44");
-            } else if (fieldType === "all") {
+            }
+            else if (fieldType === "signature") {
+                // 簽名欄位（固定對應 SA/SD/PG/TESTER）
+                targetFields.push(
+                    "issue_custom_field_values_27", // SA
+                    "issue_custom_field_values_43", // SD
+                    "issue_custom_field_values_28", // PG
+                    "issue_custom_field_values_44" // TESTER
+                );
+            }
+            else if (fieldType === "all") {
                 targetFields.push(
                     "issue_assigned_to_id",
                     "issue_custom_field_values_38",
@@ -233,56 +244,127 @@
                 );
             }
 
-            // 填入對應欄位（如果是 select 就選中對應值）
+            // 分派人 ID → 分派人名稱
+            const assigneeTextMap = {};
+            Array.from(assigneeSelect.options).forEach(opt => {
+                assigneeTextMap[opt.value] = opt.text.trim();
+            });
+
             targetFields.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) {
-                    if (el.tagName === "SELECT") {
-                        const opt = Array.from(el.options).find(o => o.value === selectedUserId);
-                        if (opt) el.value = opt.value;
-                    } else {
-                        el.value = selectedUserId;
-                    }
+                if (!el) return;
+
+                let valueToSet = selectedUserId;
+
+                // 如果是簽名欄位，自動找名稱對應值
+                if (["issue_custom_field_values_27", "issue_custom_field_values_43", "issue_custom_field_values_28", "issue_custom_field_values_44"].includes(id)) {
+                    const assigneeName = assigneeTextMap[selectedUserId];
+                    const matchOpt = Array.from(el.options).find(o => o.text.trim() === assigneeName);
+                    valueToSet = matchOpt ? matchOpt.value : "";
+                }
+
+                if (el.tagName === "SELECT") {
+                    const opt = Array.from(el.options).find(o => o.value === valueToSet);
+                    if (opt) el.value = opt.value;
+                } else {
+                    el.value = valueToSet;
                 }
             });
 
-            // 移除原本 prompt 輸入名稱
-            // const nameInput = document.getElementById("issue_subject");
-            // if(nameInput){
-            //     const nameValue = prompt("請輸入名稱","");
-            //     if(nameValue!==null) nameInput.value = nameValue;
-            // }
-
-            alert(`✅ 已將使用者 ID ${selectedUserId} 填入 ${fieldSelect.options[fieldSelect.selectedIndex].text} 欄位`);
+            alert(`✅ 已將「${assigneeTextMap[selectedUserId]}」填入 ${fieldSelect.options[fieldSelect.selectedIndex].text} 欄位`);
         }
 
+
+
+
+       // 角色對應欄位表
+        const roleFieldMap = {
+            "ALL": [
+                "issue_assigned_to_id",
+                "issue_custom_field_values_38",
+                "issue_custom_field_values_27",
+                "issue_custom_field_values_43",
+                "issue_custom_field_values_28",
+                "issue_custom_field_values_44"
+            ],
+            "SA": ["issue_custom_field_values_27"],
+            "SD": ["issue_custom_field_values_43"],
+            "PG": ["issue_custom_field_values_28"],
+            "TESTER": ["issue_custom_field_values_44"]
+        };
+
         function clearFields(){
-            const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
-            const fieldType=fieldSelect.value;
-            if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
+            const selectedRoles = roles.filter(r => roleCheckboxes[r].checked);
+            const fieldType = fieldSelect.value;
+
+                if (actionSelect.value === "fillName") {
+                    if (selectedRoles.length === 0) {
+                        alert("⚠️ 請勾選至少一個角色");
+                        return;
+                    }
+
+                    // 依 fieldType 決定要清空的欄位
+                    let targetFields = [];
+                    if (fieldType === "tracking") {
+                        targetFields = ["issue_assigned_to_id", "issue_custom_field_values_38"];
+                    } else if (fieldType === "signature") {
+                        targetFields = [
+                            "issue_custom_field_values_27", // SA
+                            "issue_custom_field_values_43", // SD
+                            "issue_custom_field_values_28", // PG
+                            "issue_custom_field_values_44" // TESTER
+                        ];
+                    } else if (fieldType === "all") {
+                        targetFields = [
+                            "issue_assigned_to_id", "issue_custom_field_values_38",
+                            "issue_custom_field_values_27", "issue_custom_field_values_43",
+                            "issue_custom_field_values_28", "issue_custom_field_values_44"
+                        ];
+                    }
+
+                    targetFields.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            if (el.tagName === "SELECT") el.selectedIndex = 0;
+                            else el.value = "";
+                        }
+                    });
+
+                    const linkCopy = document.getElementById("link_copy");
+                    if (linkCopy && linkCopy.type === "checkbox") linkCopy.checked = false;
+
+                    alert(`✅ 已清空 ${fieldType} 欄位並取消 link_copy 勾選`);
+                    return;
+    }
+
+            // 原本日期欄位清空邏輯
+            if(selectedRoles.length===0){
+                alert("⚠️ 請勾選至少一個角色");
+                return;
+            }
 
             selectedRoles.forEach(role=>{
                 let ids=[];
                 if(role==="ALL"){
                     ids = fieldType==="startDate"?startDateFields
-                        :fieldType==="endDate"?endDateFields
-                        :fieldType==="plannedStartDate"?plannedStartFields
-                        :fieldType==="plannedEndDate"?plannedEndFields
-                        :fieldType==="actualStartDate"?actualStartFields
-                        :fieldType==="actualEndDate"?actualEndFields
-                        :fieldType==="forUserDate"?forUserDate
-                        :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
+                    :fieldType==="endDate"?endDateFields
+                    :fieldType==="plannedStartDate"?plannedStartFields
+                    :fieldType==="plannedEndDate"?plannedEndFields
+                    :fieldType==="actualStartDate"?actualStartFields
+                    :fieldType==="actualEndDate"?actualEndFields
+                    :fieldType==="forUserDate"?forUserDate
+                    :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
                 } else {
                     const roleIds=roleFields[role]||[];
                     ids = fieldType==="all"?roleIds
-                        :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
-                        :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
-                        :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
-                        :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
-                        :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
-                        :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
-                        :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
-                        :[];
+                    :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
+                    :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
+                    :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
+                    :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
+                    :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
+                    :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
+                    :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
+                    :[];
                 }
                 ids.forEach(id=>{
                     const el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
@@ -295,8 +377,11 @@
 
             const linkCopy=document.getElementById("link_copy");
             if(linkCopy && linkCopy.type==="checkbox") linkCopy.checked=false;
+
             alert(`✅ 已清空 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位，並取消 link_copy 勾選`);
         }
+
+
 
         // 按鈕
         const btnExecute = document.createElement("button");
