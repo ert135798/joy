@@ -14,7 +14,7 @@
 
     function addInput() {
 
-        let isOpen = true;
+        let isOpen = false;
         if (document.getElementById("redmineCustomDateWrapper")) return;
 
         const wrapper = document.createElement("div");
