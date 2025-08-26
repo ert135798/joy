@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.18.4
+// @name         Redmine Custom Panel 精簡版 v2.18.5
 // @namespace    http://tampermonkey.net/
-// @version      2.18.4
+// @version      2.18.5
 // @description  填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
 // @match        http://*/redmine/*
 // @grant        none
@@ -366,19 +366,31 @@
         });
 
         // ====== 預估工時自動加總 ======
-        const sumIds=[55,57,58,59];
-        function autoSumEstimatedHours(){
-            const total=sumIds.reduce((s,id)=>{
-                const el=document.getElementById(`issue_custom_field_values_${id}`);
-                return s+(el&&el.value.trim()!==""&&!isNaN(parseFloat(el.value))?parseFloat(el.value):0);
-            },0);
-            const target=document.getElementById("issue_estimated_hours");
-            if(target) target.value=total;
+const sumIds = [55, 57, 58, 59];
+
+        function autoSumEstimatedHours() {
+            const total = sumIds.reduce((s, id) => {
+                const el = document.getElementById(`issue_custom_field_values_${id}`);
+                return s + (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value))
+                            ? parseFloat(el.value)
+                            : 0);
+            }, 0);
+            const target = document.getElementById("issue_estimated_hours");
+            if (target) target.value = total;
         }
-        sumIds.forEach(id=>{
-            const el=document.getElementById(`issue_custom_field_values_${id}`);
-            if(el){ el.addEventListener("input",autoSumEstimatedHours); el.addEventListener("change",autoSumEstimatedHours); }
+
+        // 用事件委派監聽所有輸入與變更事件
+        document.addEventListener("input", e => {
+            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                autoSumEstimatedHours();
+            }
         });
+        document.addEventListener("change", e => {
+            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                autoSumEstimatedHours();
+            }
+        });
+
     }
 
     // AJAX 切換 issue 自動掛載
