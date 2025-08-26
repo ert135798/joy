@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.18.2
+// @name         Redmine Custom Panel 精簡版 v2.18.4
 // @namespace    http://tampermonkey.net/
-// @version      2.18.2
-// @description  完整整合版：填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設
+// @version      2.18.4
+// @description  填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -49,7 +49,7 @@
         toggleBtn.innerText = isOpen ? "▲" : "▼";
         wrapper.appendChild(container);
 
-        // 基準日期 & 偏移天數
+        // 基準日期 & 偏移天數（不存）
         const baseDateInput = document.createElement("input");
         baseDateInput.type = "date";
         baseDateInput.style.marginRight = "5px";
@@ -80,10 +80,9 @@
             roleCheckboxes[r]=cb;
 
             cb.addEventListener("change", ()=>{
-                savePanelState({
-                    ...loadPanelState(),
-                    roles: Object.fromEntries(Object.entries(roleCheckboxes).map(([k,v])=>[k,v.checked]))
-                });
+                const s = loadPanelState();
+                s.roles = Object.fromEntries(Object.entries(roleCheckboxes).map(([k,v])=>[k,v.checked]));
+                savePanelState(s);
             });
         });
 
@@ -149,10 +148,19 @@
 
         actionSelect.addEventListener("change", ()=>{
             updateFieldsDisplay();
-            savePanelState({...loadPanelState(), actionSelect: actionSelect.value});
+            const s = loadPanelState();
+            s.actionSelect = actionSelect.value;
+            savePanelState(s);
+        });
+
+        fieldSelect.addEventListener("change", ()=>{
+            const s = loadPanelState();
+            s.fieldSelect = fieldSelect.value;
+            savePanelState(s);
         });
 
         // ====== 欄位映射 ======
+        // 簽名／人員欄位（字串 id）
         const roleFieldMap = {
             "ALL": ["issue_assigned_to_id","issue_custom_field_values_38","issue_custom_field_values_27","issue_custom_field_values_43","issue_custom_field_values_28","issue_custom_field_values_44"],
             "SA": ["issue_custom_field_values_27"],
@@ -160,13 +168,46 @@
             "PG": ["issue_custom_field_values_28"],
             "TESTER": ["issue_custom_field_values_44"]
         };
-        const startDateFields=[10,18,19,21,45,47,39,41,33];
-        const endDateFields=[17,25,20,26,46,48,40,42,34];
+
+        // 日期欄位（數字 id）
+        // 以角色索引映射：SA=0, SD=1, PG=2, TESTER=3
+        const roleIdx = { SA:0, SD:1, PG:2, TESTER:3 };
+
         const plannedStartFields=[10,39,19,45];
-        const plannedEndFields=[17,40,20,41];
-        const actualStartFields=[18,41,21,47];
-        const actualEndFields=[25,42,26,48];
-        const forUserDate=[33,34,"issue_due_date"];
+        const plannedEndFields  =[17,40,20,41];
+        const actualStartFields =[18,41,21,47];
+        const actualEndFields   =[25,42,26,48];
+
+        // 綜合集合（給 ALL 用）
+        const startDateFields=[10,18,19,21,45,47,39,41,33];
+        const endDateFields  =[17,25,20,26,46,48,40,42,34];
+
+        const forUserDate=[33,34,"issue_due_date"]; // 不分角色
+
+        function fieldsByRoleAndType(role, fieldType){
+            if (role === "ALL") {
+                return fieldType==="startDate"      ? startDateFields
+                     : fieldType==="endDate"        ? endDateFields
+                     : fieldType==="plannedStartDate"? plannedStartFields
+                     : fieldType==="plannedEndDate"  ? plannedEndFields
+                     : fieldType==="actualStartDate" ? actualStartFields
+                     : fieldType==="actualEndDate"   ? actualEndFields
+                     : fieldType==="forUserDate"     ? forUserDate
+                     : /* all */ [...plannedStartFields, ...actualStartFields, ...plannedEndFields, ...actualEndFields, ...forUserDate];
+            }
+
+            const i = roleIdx[role];
+            if (i == null) return [];
+
+            return fieldType==="startDate"       ? [plannedStartFields[i], actualStartFields[i]]
+                 : fieldType==="endDate"         ? [plannedEndFields[i],   actualEndFields[i]]
+                 : fieldType==="plannedStartDate"? [plannedStartFields[i]]
+                 : fieldType==="plannedEndDate"  ? [plannedEndFields[i]]
+                 : fieldType==="actualStartDate" ? [actualStartFields[i]]
+                 : fieldType==="actualEndDate"   ? [actualEndFields[i]]
+                 : fieldType==="forUserDate"     ? forUserDate // 追蹤日期不分角色
+                 : /* all(角色) */ [plannedStartFields[i], actualStartFields[i], plannedEndFields[i], actualEndFields[i], ...forUserDate];
+        }
 
         function getDateFromBase(base,offset=0){
             const d=new Date(base); d.setDate(d.getDate()+offset);
@@ -188,34 +229,15 @@
             const d=getDateFromBase(baseDate,offsetDays);
             const selectedRoles=roles.filter(r=>roleCheckboxes[r].checked);
             if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
+
             selectedRoles.forEach(role=>{
-                let ids=[];
-                if(role==="ALL"){
-                    ids = fieldType==="startDate"?startDateFields
-                        :fieldType==="endDate"?endDateFields
-                        :fieldType==="plannedStartDate"?plannedStartFields
-                        :fieldType==="plannedEndDate"?plannedEndFields
-                        :fieldType==="actualStartDate"?actualStartFields
-                        :fieldType==="actualEndDate"?actualEndFields
-                        :fieldType==="forUserDate"?forUserDate
-                        :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
-                } else {
-                    const roleIds=roleFieldMap[role]||[];
-                    ids = fieldType==="all"?roleIds
-                        :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
-                        :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
-                        :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
-                        :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
-                        :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
-                        :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
-                        :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
-                        :[];
-                }
+                const ids = fieldsByRoleAndType(role, fieldType);
                 ids.forEach(id=>{
                     const el = typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
                     setValue(el,d);
                 });
             });
+
             alert(`✅ 已填入 ${selectedRoles.join(", ")} 的 ${fieldType} 欄位`);
         }
 
@@ -272,28 +294,7 @@
 
             if(selectedRoles.length===0){ alert("⚠️ 請勾選至少一個角色"); return; }
             selectedRoles.forEach(role=>{
-                let ids=[];
-                if(role==="ALL"){
-                    ids=fieldType==="startDate"?startDateFields
-                    :fieldType==="endDate"?endDateFields
-                    :fieldType==="plannedStartDate"?plannedStartFields
-                    :fieldType==="plannedEndDate"?plannedEndFields
-                    :fieldType==="actualStartDate"?actualStartFields
-                    :fieldType==="actualEndDate"?actualEndFields
-                    :fieldType==="forUserDate"?forUserDate
-                    :[...startDateFields,...endDateFields,...plannedStartFields,...plannedEndFields,...actualStartFields,...actualEndFields,...forUserDate];
-                } else {
-                    const roleIds=roleFieldMap[role]||[];
-                    ids=fieldType==="all"?roleIds
-                    :fieldType==="startDate"?roleIds.filter(id=>startDateFields.includes(id))
-                    :fieldType==="endDate"?roleIds.filter(id=>endDateFields.includes(id))
-                    :fieldType==="plannedStartDate"?roleIds.filter(id=>plannedStartFields.includes(id))
-                    :fieldType==="plannedEndDate"?roleIds.filter(id=>plannedEndFields.includes(id))
-                    :fieldType==="actualStartDate"?roleIds.filter(id=>actualStartFields.includes(id))
-                    :fieldType==="actualEndDate"?roleIds.filter(id=>actualEndFields.includes(id))
-                    :fieldType==="forUserDate"?roleIds.filter(id=>forUserDate.includes(id))
-                    :[];
-                }
+                const ids = fieldsByRoleAndType(role, fieldType);
                 ids.forEach(id=>{
                     const el=typeof id==="number"?document.getElementById(`issue_custom_field_values_${id}`):document.getElementById(id);
                     if(el){ if(el.tagName==="SELECT") el.selectedIndex=0; else el.value=""; }
@@ -334,7 +335,7 @@
             Object.values(roleCheckboxes).forEach(cb=>cb.checked=false);
             fieldSelect.value="all";
             actionSelect.value="fillDate";
-            assigneeSelect.selectedIndex = 1; // <-- 新增這行，清空選人
+            assigneeSelect.selectedIndex = 1; // 清空選人（保留第一個為空白/請選擇）
             updateFieldsDisplay();
             toggleBtn.click(); // 收合
             alert("✅ 已還原預設");
@@ -359,7 +360,9 @@
             wrapper.style.background = isOpen ? "#CCEEFF" : "transparent";
             wrapper.style.border = isOpen ? "1px solid #ccc" : "none";
             toggleBtn.innerText = isOpen ? "▲" : "▼";
-            savePanelState({...loadPanelState(), isOpen});
+            const s = loadPanelState();
+            s.isOpen = isOpen;
+            savePanelState(s);
         });
 
         // ====== 預估工時自動加總 ======
