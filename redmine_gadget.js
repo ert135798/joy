@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.19
+// @name         Redmine Custom Panel 精簡版 v2.19.1
 // @namespace    http://tampermonkey.net/
-// @version      2.19
+// @version      2.19.1
 // @description  工時自動補到小數位2位
 // @match        http://*/redmine/*
 // @grant        none
@@ -257,7 +257,10 @@
             else if (fieldType === "all") targetFields.push(...roleFieldMap.ALL);
 
             const assigneeTextMap = {};
-            Array.from(assigneeSelect.options).forEach(opt=>assigneeTextMap[opt.value]=opt.text.trim());
+            Array.from(assigneeSelect.options).forEach(opt => {
+                assigneeTextMap[opt.value] = opt.text;
+            });
+
 
             targetFields.forEach(id=>{
                 const el=document.getElementById(id); if(!el) return;
@@ -335,7 +338,10 @@
         btnReset.style.marginLeft="5px";
         btnReset.addEventListener("click", ()=>{
             localStorage.removeItem(PANEL_KEY);
-            Object.values(roleCheckboxes).forEach(cb=>cb.checked=false);
+            for (const cb of Object.values(roleCheckboxes))
+            {
+                cb.checked = false;
+            }
             fieldSelect.value="all";
             actionSelect.value="fillDate";
             assigneeSelect.selectedIndex = 1; // 清空選人（保留第一個為空白/請選擇）
@@ -368,41 +374,51 @@
             savePanelState(s);
         });
 
-        // ====== 預估工時自動加總 與 補.00 ======
+        // ====== 預估工時自動加總 ======
         const sumIds = [55, 57, 58, 59]; // SA、SD、PG、TESTER
 
         function autoSumEstimatedHours() {
             const total = sumIds.reduce((sum, id) => {
                 const el = document.getElementById(`issue_custom_field_values_${id}`);
-                return sum + (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value)) ? parseFloat(el.value) : 0);
+                return sum + (el && !isNaN(parseFloat(el.value)) ? parseFloat(el.value) : 0);
             }, 0);
-
-            const totalField = document.getElementById("issue_estimated_hours"); // TODO: 總工時欄位 ID
+            const totalField = document.getElementById("issue_estimated_hours");
             if (totalField) totalField.value = total.toFixed(2);
         }
 
         function formatHoursField(id) {
             const el = document.getElementById(`issue_custom_field_values_${id}`);
-            if (el && el.value.trim() !== "" && !isNaN(el.value)) {
-                el.value = parseFloat(el.value).toFixed(2);
+            if (el) {
+                el.value = el.value.trim();
+                let val = parseFloat(el.value);
+                if (isNaN(val)) val = 0;
+                el.value = val.toFixed(2);
             }
         }
 
-        // 初始化監聽事件
+        // 初始化監聽
         sumIds.forEach(id => {
             const el = document.getElementById(`issue_custom_field_values_${id}`);
             if (el) {
-                // 失焦時補兩位小數並重新計算
+                el.addEventListener("input", autoSumEstimatedHours);
                 el.addEventListener("blur", () => {
                     formatHoursField(id);
                     autoSumEstimatedHours();
                 });
-                // 輸入時即時計算總和
-                el.addEventListener("input", autoSumEstimatedHours);
+
+                // 這段是關鍵：按 Enter 時先格式化再送出
+                el.addEventListener("keydown", e => {
+                    if (e.key === "Enter") {
+                        e.preventDefault(); // 先阻止預設送出
+                        sumIds.forEach(formatHoursField);
+                        autoSumEstimatedHours();
+                        el.form?.submit(); // 再手動送出
+                    }
+                });
             }
         });
 
-        // 頁面載入完成後，先補格式再算一次
+        // 頁面載入完成後先補一次格式
         window.addEventListener("load", () => {
             sumIds.forEach(formatHoursField);
             autoSumEstimatedHours();
