@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.18.4
+// @name         Redmine Custom Panel 精簡版 v2.18.6
 // @namespace    http://tampermonkey.net/
 // @version      2.18.6
-// @description  填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
+// @description  TESTER數值調整、填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
