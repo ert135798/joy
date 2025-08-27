@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.18.6
+// @name         Redmine Custom Panel 精簡版 v2.19
 // @namespace    http://tampermonkey.net/
-// @version      2.18.6
-// @description  TESTER數值調整、填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
+// @version      2.19
+// @description  工時自動補到小數位2位
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -368,30 +368,44 @@
             savePanelState(s);
         });
 
-        // ====== 預估工時自動加總 ======
-const sumIds = [55, 57, 58, 59];
+        // ====== 預估工時自動加總 與 補.00 ======
+        const sumIds = [55, 57, 58, 59]; // SA、SD、PG、TESTER
 
         function autoSumEstimatedHours() {
-            const total = sumIds.reduce((s, id) => {
+            const total = sumIds.reduce((sum, id) => {
                 const el = document.getElementById(`issue_custom_field_values_${id}`);
-                return s + (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value))
-                            ? parseFloat(el.value)
-                            : 0);
+                return sum + (el && el.value.trim() !== "" && !isNaN(parseFloat(el.value)) ? parseFloat(el.value) : 0);
             }, 0);
-            const target = document.getElementById("issue_estimated_hours");
-            if (target) target.value = total;
+
+            const totalField = document.getElementById("issue_estimated_hours"); // TODO: 總工時欄位 ID
+            if (totalField) totalField.value = total.toFixed(2);
         }
 
-        // 用事件委派監聽所有輸入與變更事件
-        document.addEventListener("input", e => {
-            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
-                autoSumEstimatedHours();
+        function formatHoursField(id) {
+            const el = document.getElementById(`issue_custom_field_values_${id}`);
+            if (el && el.value.trim() !== "" && !isNaN(el.value)) {
+                el.value = parseFloat(el.value).toFixed(2);
+            }
+        }
+
+        // 初始化監聽事件
+        sumIds.forEach(id => {
+            const el = document.getElementById(`issue_custom_field_values_${id}`);
+            if (el) {
+                // 失焦時補兩位小數並重新計算
+                el.addEventListener("blur", () => {
+                    formatHoursField(id);
+                    autoSumEstimatedHours();
+                });
+                // 輸入時即時計算總和
+                el.addEventListener("input", autoSumEstimatedHours);
             }
         });
-        document.addEventListener("change", e => {
-            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
-                autoSumEstimatedHours();
-            }
+
+        // 頁面載入完成後，先補格式再算一次
+        window.addEventListener("load", () => {
+            sumIds.forEach(formatHoursField);
+            autoSumEstimatedHours();
         });
 
     }
