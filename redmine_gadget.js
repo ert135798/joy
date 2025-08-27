@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.19.1
+// @name         Redmine Custom Panel 精簡版 v2.19
 // @namespace    http://tampermonkey.net/
-// @version      2.19.1
+// @version      2.19.2
 // @description  工時自動補到小數位2位
 // @match        http://*/redmine/*
 // @grant        none
@@ -19,6 +19,7 @@
     function loadPanelState() { try { return JSON.parse(localStorage.getItem(PANEL_KEY)) || {}; } catch(e){ return {}; } }
 
     function addInput() {
+
         if (document.getElementById("redmineCustomDateWrapper")) return;
 
         const state = loadPanelState();
@@ -374,7 +375,7 @@
             savePanelState(s);
         });
 
-        // ====== 預估工時自動加總 ======
+        // ====== 永遠有效的工時自動加總 & 格式化 ======
         const sumIds = [55, 57, 58, 59]; // SA、SD、PG、TESTER
 
         function autoSumEstimatedHours() {
@@ -386,43 +387,43 @@
             if (totalField) totalField.value = total.toFixed(2);
         }
 
-        function formatHoursField(id) {
-            const el = document.getElementById(`issue_custom_field_values_${id}`);
-            if (el) {
-                el.value = el.value.trim();
-                let val = parseFloat(el.value);
-                if (isNaN(val)) val = 0;
-                el.value = val.toFixed(2);
-            }
+        function formatHoursField(el) {
+            if (!el) return;
+            el.value = el.value.trim();
+            let val = parseFloat(el.value);
+            if (isNaN(val)) val = 0;
+            el.value = val.toFixed(2);
         }
 
-        // 初始化監聽
-        sumIds.forEach(id => {
-            const el = document.getElementById(`issue_custom_field_values_${id}`);
-            if (el) {
-                el.addEventListener("input", autoSumEstimatedHours);
-                el.addEventListener("blur", () => {
-                    formatHoursField(id);
-                    autoSumEstimatedHours();
-                });
-
-                // 這段是關鍵：按 Enter 時先格式化再送出
-                el.addEventListener("keydown", e => {
-                    if (e.key === "Enter") {
-                        e.preventDefault(); // 先阻止預設送出
-                        sumIds.forEach(formatHoursField);
-                        autoSumEstimatedHours();
-                        el.form?.submit(); // 再手動送出
-                    }
-                });
+        // 事件代理：監聽 body，捕捉 input/blur/keydown
+        document.body.addEventListener("input", e => {
+            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                autoSumEstimatedHours();
             }
         });
 
-        // 頁面載入完成後先補一次格式
+        document.body.addEventListener("blur", e => {
+            if (sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                formatHoursField(e.target);
+                autoSumEstimatedHours();
+            }
+        }, true); // useCapture=true，捕捉到冒泡前
+
+        document.body.addEventListener("keydown", e => {
+            if (e.key === "Enter" && sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                e.preventDefault();
+                sumIds.forEach(id => formatHoursField(document.getElementById(`issue_custom_field_values_${id}`)));
+                autoSumEstimatedHours();
+                e.target.form?.submit();
+            }
+        });
+
+        // 初始化：頁面 load 時補一次格式
         window.addEventListener("load", () => {
-            sumIds.forEach(formatHoursField);
+            sumIds.forEach(id => formatHoursField(document.getElementById(`issue_custom_field_values_${id}`)));
             autoSumEstimatedHours();
         });
+
 
     }
 
