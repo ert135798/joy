@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.18.5
+// @name         Redmine Custom Panel 精簡版 v2.18.4
 // @namespace    http://tampermonkey.net/
-// @version      2.18.5
+// @version      2.18.6
 // @description  填日期/填人員 + 面板狀態記憶 + AJAX 自動掛載 + 還原預設（修正填日期角色映射；日期欄位不紀錄）
 // @match        http://*/redmine/*
 // @grant        none
@@ -172,40 +172,43 @@
         // 日期欄位（數字 id）
         // 以角色索引映射：SA=0, SD=1, PG=2, TESTER=3
         const roleIdx = { SA:0, SD:1, PG:2, TESTER:3 };
-
+        //預計開始日
         const plannedStartFields=[10,39,19,45];
-        const plannedEndFields  =[17,40,20,41];
+        //預計結束日
+        const plannedEndFields=[17,40,20,46];
+        //實際開始日
         const actualStartFields =[18,41,21,47];
-        const actualEndFields   =[25,42,26,48];
+        //實際結束日
+        const actualEndFields=[25,42,26,48];
 
         // 綜合集合（給 ALL 用）
-        const startDateFields=[10,18,19,21,45,47,39,41,33];
-        const endDateFields  =[17,25,20,26,46,48,40,42,34];
+        const startDateFields=[10,18,39,41,19,21,45,47,33];
+        const endDateFields=[17,25,40,42,20,26,46,48,34];
 
         const forUserDate=[33,34,"issue_due_date"]; // 不分角色
 
         function fieldsByRoleAndType(role, fieldType){
             if (role === "ALL") {
-                return fieldType==="startDate"      ? startDateFields
-                     : fieldType==="endDate"        ? endDateFields
+                return fieldType==="startDate"? startDateFields
+                     : fieldType==="endDate" ? endDateFields
                      : fieldType==="plannedStartDate"? plannedStartFields
-                     : fieldType==="plannedEndDate"  ? plannedEndFields
+                     : fieldType==="plannedEndDate"? plannedEndFields
                      : fieldType==="actualStartDate" ? actualStartFields
-                     : fieldType==="actualEndDate"   ? actualEndFields
-                     : fieldType==="forUserDate"     ? forUserDate
+                     : fieldType==="actualEndDate"? actualEndFields
+                     : fieldType==="forUserDate"? forUserDate
                      : /* all */ [...plannedStartFields, ...actualStartFields, ...plannedEndFields, ...actualEndFields, ...forUserDate];
             }
 
             const i = roleIdx[role];
             if (i == null) return [];
 
-            return fieldType==="startDate"       ? [plannedStartFields[i], actualStartFields[i]]
-                 : fieldType==="endDate"         ? [plannedEndFields[i],   actualEndFields[i]]
+            return fieldType==="startDate" ? [plannedStartFields[i], actualStartFields[i]]
+                 : fieldType==="endDate" ? [plannedEndFields[i], actualEndFields[i]]
                  : fieldType==="plannedStartDate"? [plannedStartFields[i]]
-                 : fieldType==="plannedEndDate"  ? [plannedEndFields[i]]
+                 : fieldType==="plannedEndDate"? [plannedEndFields[i]]
                  : fieldType==="actualStartDate" ? [actualStartFields[i]]
-                 : fieldType==="actualEndDate"   ? [actualEndFields[i]]
-                 : fieldType==="forUserDate"     ? forUserDate // 追蹤日期不分角色
+                 : fieldType==="actualEndDate"? [actualEndFields[i]]
+                 : fieldType==="forUserDate" ? forUserDate // 追蹤日期不分角色
                  : /* all(角色) */ [plannedStartFields[i], actualStartFields[i], plannedEndFields[i], actualEndFields[i], ...forUserDate];
         }
 
