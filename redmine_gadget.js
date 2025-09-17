@@ -338,18 +338,22 @@
         btnReset.innerText="還原預設";
         btnReset.style.marginLeft="5px";
         btnReset.addEventListener("click", ()=>{
-            const s = { isOpen: true }; // panel 展開
-            localStorage.setItem(PANEL_KEY, JSON.stringify(s));
-            for (const cb of Object.values(roleCheckboxes))
-            {
-                cb.checked = false;
-            }
-            fieldSelect.value="all";
-            actionSelect.value="fillDate";
-            assigneeSelect.selectedIndex = 1; // 清空選人（保留第一個為空白/請選擇）
-            updateFieldsDisplay();
-            //toggleBtn.click(); // 收合
-            //alert("✅ 已還原預設");
+            const s = {
+                isOpen: true,
+                roles: {},
+                actionSelect: "fillDate",
+                fieldSelect: "all" // reset 成 all
+            };
+            savePanelState(s);
+
+            // UI 同步
+            for (const cb of Object.values(roleCheckboxes)) cb.checked = false;
+            actionSelect.value = "fillDate";
+            fieldSelect.value = "all";
+            assigneeSelect.selectedIndex = 0;
+
+            alert("✅ 已還原預設");
+
         });
 
         container.appendChild(actionSelect);
