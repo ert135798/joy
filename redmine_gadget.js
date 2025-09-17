@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Redmine Custom Panel 精簡版 v2.19
+// @name         Redmine Custom Panel 精簡版 v2.19.2
 // @namespace    http://tampermonkey.net/
-// @version      2.19.2
-// @description  工時自動補到小數位2位
+// @version      2.19.3
+// @description  2.19.3 還原預設不要還原收合狀態 & 移除提示文字(太煩了) 2.19.2 工時自動補到小數位2位
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -338,7 +338,8 @@
         btnReset.innerText="還原預設";
         btnReset.style.marginLeft="5px";
         btnReset.addEventListener("click", ()=>{
-            localStorage.removeItem(PANEL_KEY);
+            const s = { isOpen: true }; // panel 展開
+            localStorage.setItem(PANEL_KEY, JSON.stringify(s));
             for (const cb of Object.values(roleCheckboxes))
             {
                 cb.checked = false;
@@ -347,8 +348,8 @@
             actionSelect.value="fillDate";
             assigneeSelect.selectedIndex = 1; // 清空選人（保留第一個為空白/請選擇）
             updateFieldsDisplay();
-            toggleBtn.click(); // 收合
-            alert("✅ 已還原預設");
+            //toggleBtn.click(); // 收合
+            //alert("✅ 已還原預設");
         });
 
         container.appendChild(actionSelect);
