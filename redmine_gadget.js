@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2.19.2
 // @namespace    http://tampermonkey.net/
-// @version      2.19.4
-// @description  2.19.4 還原預設不要還原收合狀態 & 移除提示文字(太煩了) 2.19.2 工時自動補到小數位2位
+// @version      2.19.5
+// @description  2.19.5 還原預設不要還原收合狀態 & 移除提示文字(太煩了) 2.19.2 工時自動補到小數位2位
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -352,7 +352,7 @@
             fieldSelect.value = "all";
             assigneeSelect.selectedIndex = 0;
 
-            alert("✅ 已還原預設");
+           // alert("✅ 已還原預設");
 
         });
 
