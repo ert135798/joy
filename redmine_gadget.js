@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2.19.6
 // @namespace    http://tampermonkey.net/
-// @version      2.19.6
-// @description  2.19.6 新增「只填空欄位」功能，還原預設不要還原收合狀態 & 移除提示文字
+// @version      2.19.7
+// @description  2.19.7 調整小數欄位判斷 新增「只填空欄位」功能，還原預設不要還原收合狀態 & 移除提示文字
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -372,6 +372,10 @@
 
         function formatHoursField(el) {
             if (!el) return;
+
+            // 日期欄位直接跳過，不格式化
+            if (el.type === "date" || el.classList.contains("date")) return;
+
             el.value = el.value.trim();
             if (el.value === "") return;  // 空值保持空，不轉 0.00
 
@@ -384,7 +388,9 @@
             if(sumIds.some(id=>e.target.id===`issue_custom_field_values_${id}`)) autoSumEstimatedHours();
         });
         document.body.addEventListener("change", e=>{
-            if(e.target && e.target.id && e.target.id.startsWith("issue_custom_field_values_")) formatHoursField(e.target);
+            if(e.target && sumIds.some(id => e.target.id === `issue_custom_field_values_${id}`)) {
+                formatHoursField(e.target);
+            }
         });
     }
 
