@@ -2,7 +2,7 @@
 // @name         Redmine Custom Panel 精簡版 v2.19.6
 // @namespace    http://tampermonkey.net/
 // @version      2.19.8
-// @description  2.19.8 調整小數欄位判斷 新增「只填空欄位」功能，還原預設不要還原收合狀態 & 移除提示文字
+// @description  2.19.8 全部欄位不要包含追蹤用欄位
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
