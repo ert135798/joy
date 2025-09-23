@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Redmine Custom Panel 精簡版 v2.19.6
 // @namespace    http://tampermonkey.net/
-// @version      2.19.7
-// @description  2.19.7 調整小數欄位判斷 新增「只填空欄位」功能，還原預設不要還原收合狀態 & 移除提示文字
+// @version      2.19.8
+// @description  2.19.8 調整小數欄位判斷 新增「只填空欄位」功能，還原預設不要還原收合狀態 & 移除提示文字
 // @match        http://*/redmine/*
 // @grant        none
 // @updateURL    https://ert135798.github.io/joy/redmine_gadget.js
@@ -183,24 +183,24 @@
         function fieldsByRoleAndType(role, fieldType){
             if (role === "ALL") {
                 return fieldType==="startDate"? startDateFields
-                     : fieldType==="endDate" ? endDateFields
-                     : fieldType==="plannedStartDate"? plannedStartFields
-                     : fieldType==="plannedEndDate"? plannedEndFields
-                     : fieldType==="actualStartDate" ? actualStartFields
-                     : fieldType==="actualEndDate"? actualEndFields
-                     : fieldType==="forUserDate"? forUserDate
-                     : /* all */ [...plannedStartFields, ...actualStartFields, ...plannedEndFields, ...actualEndFields, ...forUserDate];
+                : fieldType==="endDate" ? endDateFields
+                : fieldType==="plannedStartDate"? plannedStartFields
+                : fieldType==="plannedEndDate"? plannedEndFields
+                : fieldType==="actualStartDate" ? actualStartFields
+                : fieldType==="actualEndDate"? actualEndFields
+                : fieldType==="forUserDate"? forUserDate
+                : /* all (不包含追蹤) */ [...plannedStartFields, ...actualStartFields, ...plannedEndFields, ...actualEndFields];
             }
             const i = roleIdx[role];
             if (i == null) return [];
             return fieldType==="startDate" ? [plannedStartFields[i], actualStartFields[i]]
-                 : fieldType==="endDate" ? [plannedEndFields[i], actualEndFields[i]]
-                 : fieldType==="plannedStartDate"? [plannedStartFields[i]]
-                 : fieldType==="plannedEndDate"? [plannedEndFields[i]]
-                 : fieldType==="actualStartDate" ? [actualStartFields[i]]
-                 : fieldType==="actualEndDate"? [actualEndFields[i]]
-                 : fieldType==="forUserDate" ? forUserDate
-                 : [plannedStartFields[i], actualStartFields[i], plannedEndFields[i], actualEndFields[i], ...forUserDate];
+            : fieldType==="endDate" ? [plannedEndFields[i], actualEndFields[i]]
+            : fieldType==="plannedStartDate"? [plannedStartFields[i]]
+            : fieldType==="plannedEndDate"? [plannedEndFields[i]]
+            : fieldType==="actualStartDate" ? [actualStartFields[i]]
+            : fieldType==="actualEndDate"? [actualEndFields[i]]
+            : fieldType==="forUserDate" ? forUserDate
+            : /* all (不包含追蹤) */ [plannedStartFields[i], actualStartFields[i], plannedEndFields[i], actualEndFields[i]];
         }
 
         function getDateFromBase(base,offset=0){
